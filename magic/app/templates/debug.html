@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug OCR</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .results { margin: 20px 0; }
+        .region { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .confidence { color: #28a745; font-weight: bold; }
+        .text { font-style: italic; }
+    </style>
+</head>
+<body>
+    <h1>OCR Debug Mode</h1>
+
+    {% if error %}
+        <div style="color: red;">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data">
+        <input type="file" name="card_image" accept="image/*" required>
+        <button type="submit">Analyze Image</button>
+    </form>
+
+    {% if results %}
+        <h2>OCR Results by Region:</h2>
+        <div class="results">
+            {% for result in results %}
+            <div class="region">
+                <strong>{{ result.region }}:</strong>
+                <span class="confidence">({{ result.confidence }} confidence)</span><br>
+                <span class="text">"{{ result.text }}"</span>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if image_path %}
+        <h3>Uploaded Image:</h3>
+        <img src="{{ image_path }}" alt="Debug image" style="max-width: 300px;">
+        {% endif %}
+    {% endif %}
+
+    <br>
+    <a href="/">← Back to Main Scanner</a>
+</body>
+</html>

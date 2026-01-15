@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MTG Card Scanner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="main-container">
+        <header>
+            <h1>
+                <span class="icon-star">✨</span> MTG Card <span class="accent">Scanner</span> <span class="icon-star">✨</span>
+            </h1>
+            <p class="subtitle">
+                Upload a photo of any Magic: The Gathering card and instantly get detailed information from the Scryfall database.
+            </p>
+        </header>
+
+        {% if error %}
+            <div class="error-box">{{ error }}</div>
+        {% endif %}
+        
+        <div class="upload-section">
+            <form method="post" enctype="multipart/form-data" class="upload-form-box" id="imageUploadForm">
+                <input type="file" name="card_image" id="card_image_input" accept="image/*" required>
+
+                <label for="card_image_input" class="custom-file-upload" id="uploadLabel">
+                    <div class="upload-icon"><i class='bx bx-upload'></i></div>
+                    <div class="upload-title">Upload a Card Image</div>
+                    <div class="upload-sub">Drag and drop or click to browse<br>Supports JPG, PNG, WEBP up to 10MB</div>
+                </label>
+
+                <!-- File upload indicator -->
+                <div class="file-upload-indicator" id="fileUploadIndicator" style="display: none;">
+                    <div class="file-icon">✓</div>
+                    <div class="file-name" id="uploadedFileName"></div>
+                </div>
+
+                <button type="submit" class="scan-button" id="scanButton">
+                    <span class="icon-search">🔍</span> Scan Card
+                </button>
+            </form>
+
+            <!-- Loading animation overlay -->
+            <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+                <div class="loading-container">
+                    <div class="spinner"></div>
+                    <div class="loading-text">Scanning your card...</div>
+                </div>
+            </div>
+            <p class="or-separator">or</p>
+            <form method="post" class="search-by-name" style="margin-top:14px;">
+                <input type="text" name="card_name" placeholder="Enter card name..." required>
+                <button type="submit" class="scan-button" style="padding:10px 18px; border-radius:8px;">Search</button>
+            </form>
+        </div>
+
+        <div class="tips-box">
+            <h2><span class="icon-bulb">💡</span> Tips for Best Results</h2>
+            <div class="tip-columns">
+                <ul>
+                    <li>Use clear, high-quality images</li>
+                    <li>Crop to just the card if possible</li>
+                    <li>Make sure the card name is clearly visible</li>
+                </ul>
+                <ul>
+                    <li>Ensure good lighting and contrast</li>
+                    <li>Avoid glare and shadows</li>
+                    <li>Try a screenshot from official sources</li>
+                </ul>
+            </div>
+            <div class="debug-link-container">
+                <a href="/debug" class="debug-link">Having issues? Try the debug mode.</a>
+            </div>
+        </div>
+        
+        <footer>
+            Powered by Scryfall API
+        </footer>
+    </div>
+
+    <script>
+        // File upload indicator
+        const fileInput = document.getElementById('card_image_input');
+        const uploadLabel = document.getElementById('uploadLabel');
+        const fileUploadIndicator = document.getElementById('fileUploadIndicator');
+        const uploadedFileName = document.getElementById('uploadedFileName');
+        const imageUploadForm = document.getElementById('imageUploadForm');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+
+        fileInput.addEventListener('change', function(e) {
+            if (this.files && this.files[0]) {
+                const fileName = this.files[0].name;
+                uploadedFileName.textContent = `📁 ${fileName}`;
+                fileUploadIndicator.style.display = 'flex';
+                uploadLabel.style.display = 'none';
+            }
+        });
+
+        // Show loading animation when form is submitted
+        imageUploadForm.addEventListener('submit', function(e) {
+            loadingOverlay.style.display = 'flex';
+        });
+
+        // Handle drag and drop
+        uploadLabel.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadLabel.style.background = 'rgba(244, 197, 66, 0.1)';
+            uploadLabel.style.borderColor = 'rgba(244, 197, 66, 0.3)';
+        });
+
+        uploadLabel.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            uploadLabel.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.015))';
+            uploadLabel.style.borderColor = 'rgba(255,255,255,0.04)';
+        });
+
+        uploadLabel.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadLabel.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.015))';
+            uploadLabel.style.borderColor = 'rgba(255,255,255,0.04)';
+            
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                fileInput.files = e.dataTransfer.files;
+                const event = new Event('change', { bubbles: true });
+                fileInput.dispatchEvent(event);
+            }
+        });
+    </script>
+</body>
+</html>
