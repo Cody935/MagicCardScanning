@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Collection - Magic Card Scanner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Playfair+Display:wght@700&family=Cinzel:wght@700;900&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            background: rgba(26, 26, 46, 0.8);
+            padding: 30px 40px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-family: 'Montserrat', sans-serif;
+            margin: 0;
+            color: white;
+            font-size: 42px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 15px;
+        }
+
+        .header-actions a, .header-actions button {
+            padding: 12px 28px;
+            border: none;
+            border-radius: 10px;
+            text-decoration: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-logout {
+            background: rgba(231, 76, 60, 0.2);
+            color: #ff6b6b;
+            border: 1px solid rgba(231, 76, 60, 0.5);
+        }
+
+        .btn-logout:hover {
+            background: rgba(231, 76, 60, 0.3);
+            border-color: rgba(231, 76, 60, 0.8);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .stat-box {
+            background: rgba(26, 26, 46, 0.8);
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-box:hover {
+            border-color: rgba(102, 126, 234, 0.5);
+            box-shadow: 0 12px 40px rgba(102, 126, 234, 0.2);
+        }
+
+        .stat-box.clickable {
+            cursor: pointer;
+            position: relative;
+        }
+
+        .sets-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(42, 42, 62, 0.95);
+            border: 1px solid rgba(102, 126, 234, 0.5);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            min-width: 250px;
+            z-index: 1000;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            width: auto;
+        }
+
+        .sets-dropdown.active {
+            display: block;
+        }
+
+        .stats.dropdown-open {
+            margin-bottom: 300px;
+        }
+
+        .sets-dropdown-item {
+            padding: 10px 12px;
+            color: #e0e0e0;
+            font-size: 13px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            margin-bottom: 5px;
+        }
+
+        .sets-dropdown-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .sets-dropdown-item:hover {
+            background: rgba(102, 126, 234, 0.2);
+            color: white;
+        }
+
+        .stat-number {
+            font-size: 42px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            color: #aaa;
+            margin-top: 10px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .collection-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+
+        .card-item {
+            background: rgba(26, 26, 46, 0.8);
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(102, 126, 234, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .card-item:hover {
+            transform: translateY(-8px);
+            border-color: rgba(102, 126, 234, 0.5);
+            box-shadow: 0 15px 50px rgba(102, 126, 234, 0.3);
+        }
+
+        .card-image {
+            width: 100%;
+            height: 300px;
+            background: linear-gradient(135deg, #2a2a3e 0%, #1a1a2e 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-size: 14px;
+            text-align: center;
+            padding: 15px;
+            box-sizing: border-box;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-image img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .card-info {
+            padding: 20px;
+        }
+
+        .card-name {
+            font-weight: 700;
+            font-size: 18px;
+            color: white;
+            margin-bottom: 12px;
+            line-height: 1.3;
+        }
+
+        .card-details {
+            font-size: 13px;
+            color: #aaa;
+            margin-bottom: 15px;
+        }
+
+        .card-details div {
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .card-actions button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-size: 13px;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .btn-delete {
+            background: rgba(231, 76, 60, 0.2);
+            color: #ff6b6b;
+            border: 1px solid rgba(231, 76, 60, 0.5);
+        }
+
+        .btn-delete:hover {
+            background: rgba(231, 76, 60, 0.3);
+            border-color: rgba(231, 76, 60, 0.8);
+        }
+
+        .empty-message {
+            text-align: center;
+            padding: 80px 40px;
+            background: rgba(26, 26, 46, 0.8);
+            border-radius: 15px;
+            color: #aaa;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+        }
+
+        .empty-message p {
+            margin: 15px 0;
+            font-size: 16px;
+        }
+
+        .empty-message a {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 12px 28px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .empty-message a:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .filters-section {
+            background: rgba(26, 26, 46, 0.8);
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            margin-bottom: 30px;
+        }
+
+        .filters-title {
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .filter-group {
+            margin-bottom: 20px;
+        }
+
+        .filter-label {
+            color: #667eea;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: block;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            color: #aaa;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            font-family: 'Poppins', sans-serif;
+            white-space: nowrap;
+        }
+
+        .filter-btn:hover {
+            border-color: rgba(102, 126, 234, 0.6);
+            color: #e0e0e0;
+        }
+
+        .filter-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: transparent;
+            color: white;
+        }
+
+        .filter-reset {
+            padding: 8px 16px;
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid rgba(231, 76, 60, 0.5);
+            color: #ff6b6b;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .filter-reset:hover {
+            background: rgba(231, 76, 60, 0.3);
+            border-color: rgba(231, 76, 60, 0.8);
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                text-align: center;
+                gap: 20px;
+            }
+
+            .header-actions {
+                width: 100%;
+                flex-direction: column;
+            }
+
+            .header-actions a, .header-actions button {
+                width: 100%;
+            }
+
+            .collection-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 28px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 My Collection</h1>
+            <div class="header-actions">
+                <a href="{{ url_for('upload_card') }}" class="btn-primary">+ Add Card</a>
+                <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-number">{{ cards|length }}</div>
+                <div class="stat-label">Cards Collected</div>
+            </div>
+            <div class="stat-box clickable" id="setsBox">
+                <div class="stat-number">{{ cards|map(attribute='set_name')|unique|list|length }}</div>
+                <div class="stat-label">Different Sets</div>
+                <div class="sets-dropdown" id="setsDropdown">
+                    {% set sets = cards|map(attribute='set_name')|unique|list|sort %}
+                    {% for set in sets %}
+                        <div class="sets-dropdown-item">{{ set }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">{{ cards|map(attribute='rarity')|unique|list|length }}</div>
+                <div class="stat-label">Rarities</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">${{ "%.2f"|format(cards|map(attribute='price_usd')|map('replace', '$', '')|map('float', 0)|sum) }}</div>
+                <div class="stat-label">Total Value</div>
+            </div>
+        </div>
+
+        {% if cards %}
+            <div style="margin: 40px 0 30px 0;">
+                <input type="text" id="searchBar" placeholder="Search cards by name..." style="width: 100%; padding: 14px 20px; background: rgba(42, 42, 62, 0.8); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 10px; color: white; font-family: 'Poppins', sans-serif; font-size: 14px; transition: all 0.3s ease; box-sizing: border-box;">
+            </div>
+
+            <div class="filters-section">
+                <div class="filters-title">Filter Your Collection</div>
+                
+                <div class="filter-group">
+                    <label class="filter-label">By Set</label>
+                    <div class="filter-buttons">
+                        {% set sets = cards|map(attribute='set_name')|unique|list|sort %}
+                        {% for set in sets %}
+                            <button class="filter-btn" data-filter="set" data-value="{{ set }}">{{ set }}</button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">By Rarity</label>
+                    <div class="filter-buttons">
+                        {% set rarities = cards|map(attribute='rarity')|unique|list|sort %}
+                        {% for rarity in rarities %}
+                            <button class="filter-btn" data-filter="rarity" data-value="{{ rarity }}">{{ rarity }}</button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">By Price</label>
+                    <div class="filter-buttons">
+                        <button class="filter-btn" data-filter="price" data-value="0-1">$1 or less</button>
+                        <button class="filter-btn" data-filter="price" data-value="1-5">$1 - $5</button>
+                        <button class="filter-btn" data-filter="price" data-value="5-10">$5 - $10</button>
+                        <button class="filter-btn" data-filter="price" data-value="10-20">$10 - $20</button>
+                        <button class="filter-btn" data-filter="price" data-value="20-30">$20 - $30</button>
+                        <button class="filter-btn" data-filter="price" data-value="30-50">$30 - $50</button>
+                        <button class="filter-btn" data-filter="price" data-value="50-100">$50 - $100</button>
+                        <button class="filter-btn" data-filter="price" data-value="100-999999">$100+</button>
+                    </div>
+                </div>
+
+                <button class="filter-reset" id="resetFilters">Clear All Filters</button>
+            </div>
+                {% for card in cards %}
+                    <div class="card-item" data-set="{{ card.set_name }}" data-rarity="{{ card.rarity }}" data-price="{{ card.price_usd }}" data-name="{{ card.card_name }}">
+                        <div class="card-image">
+                            {% if card.image_url %}
+                                <img src="{{ card.image_url }}" alt="{{ card.card_name }}">
+                            {% else %}
+                                <span>No Image Available</span>
+                            {% endif %}
+                        </div>
+                        <div class="card-info">
+                            <div class="card-name">{{ card.card_name }}</div>
+                            <div class="card-details">
+                                <div><span class="detail-label">Set:</span> {{ card.set_name }}</div>
+                                <div><span class="detail-label">Rarity:</span> {{ card.rarity }}</div>
+                                <div><span class="detail-label">Price:</span> ${{ card.price_usd }}</div>
+                                <div><span class="detail-label">Added:</span> {{ card.uploaded_at.strftime('%b %d, %Y') }}</div>
+                            </div>
+                            <div class="card-actions">
+                                <form method="POST" action="{{ url_for('delete_card', card_id=card.id) }}" style="width: 100%;">
+                                    <button type="submit" class="btn-delete" onclick="return confirm('Remove this card from your collection?')">Delete</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-message" style="margin-top: 40px;">
+                <p style="font-size: 48px; margin: 20px 0;">✨</p>
+                <p>Your collection is empty</p>
+                <p style="font-size: 14px;">Start scanning Magic cards to build your collection!</p>
+                <a href="{{ url_for('upload_card') }}">Upload Your First Card</a>
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        let activeFilters = {
+            set: null,
+            rarity: null,
+            price: null
+        };
+        let searchTerm = '';
+
+        function getCardPrice(priceStr) {
+            if (!priceStr || priceStr === 'N/A') return 0;
+            return parseFloat(priceStr.replace('$', ''));
+        }
+
+        function filterCards() {
+            const cards = document.querySelectorAll('.card-item');
+            let visibleCount = 0;
+
+            cards.forEach(card => {
+                const cardSet = card.dataset.set;
+                const cardRarity = card.dataset.rarity;
+                const cardPrice = getCardPrice(card.dataset.price);
+                const cardName = card.dataset.name.toLowerCase();
+                
+                let show = true;
+
+                // Filter by search term
+                if (searchTerm && !cardName.includes(searchTerm.toLowerCase())) {
+                    show = false;
+                }
+
+                // Filter by set
+                if (show && activeFilters.set && cardSet !== activeFilters.set) {
+                    show = false;
+                }
+
+                // Filter by rarity
+                if (show && activeFilters.rarity && cardRarity !== activeFilters.rarity) {
+                    show = false;
+                }
+
+                // Filter by price
+                if (show && activeFilters.price) {
+                    const [min, max] = activeFilters.price.split('-').map(Number);
+                    if (cardPrice < min || cardPrice > max) {
+                        show = false;
+                    }
+                }
+
+                card.style.display = show ? 'block' : 'none';
+                if (show) visibleCount++;
+            });
+
+            // Show empty message if no cards match filters
+            const emptyMsg = document.querySelector('.empty-message');
+            if (visibleCount === 0 && cards.length > 0) {
+                if (!emptyMsg) {
+                    const container = document.querySelector('.collection-grid');
+                    if (container) {
+                        container.innerHTML = '<div class="empty-message"><p>No cards match your search or filters</p></div>';
+                    }
+                }
+            }
+        }
+
+        function updateFilterButtons() {
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                const filterType = btn.dataset.filter;
+                const filterValue = btn.dataset.value;
+                
+                if (activeFilters[filterType] === filterValue) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        // Search functionality
+        document.getElementById('searchBar').addEventListener('input', function(e) {
+            searchTerm = e.target.value;
+            filterCards();
+        });
+
+        // Search bar styling on focus
+        document.getElementById('searchBar').addEventListener('focus', function() {
+            this.style.borderColor = 'rgba(102, 126, 234, 0.8)';
+            this.style.boxShadow = '0 0 15px rgba(102, 126, 234, 0.3)';
+        });
+
+        document.getElementById('searchBar').addEventListener('blur', function() {
+            this.style.borderColor = 'rgba(102, 126, 234, 0.3)';
+            this.style.boxShadow = 'none';
+        });
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const filterType = this.dataset.filter;
+                const filterValue = this.dataset.value;
+
+                if (activeFilters[filterType] === filterValue) {
+                    activeFilters[filterType] = null;
+                } else {
+                    activeFilters[filterType] = filterValue;
+                }
+
+                updateFilterButtons();
+                filterCards();
+            });
+        });
+
+        document.getElementById('resetFilters').addEventListener('click', function() {
+            activeFilters = { set: null, rarity: null, price: null };
+            searchTerm = '';
+            document.getElementById('searchBar').value = '';
+            updateFilterButtons();
+            filterCards();
+            location.reload();
+        });
+
+        // Sets dropdown functionality
+        const setsBox = document.getElementById('setsBox');
+        const setsDropdown = document.getElementById('setsDropdown');
+        const statsContainer = document.querySelector('.stats');
+
+        setsBox.addEventListener('click', function(e) {
+            e.stopPropagation();
+            setsDropdown.classList.toggle('active');
+            statsContainer.classList.toggle('dropdown-open');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function() {
+            setsDropdown.classList.remove('active');
+            statsContainer.classList.remove('dropdown-open');
+        });
+
+        // Close dropdown when clicking on the dropdown itself
+        setsDropdown.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+    </script>
+</html>

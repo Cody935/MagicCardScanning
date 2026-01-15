@@ -4,62 +4,528 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MTG Card Scanner</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Playfair+Display:wght@700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #2a3a5f 0%, #3a1a4d 100%);
+            color: #e9eef6;
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+        }
+
+        .main-container {
+            max-width: 900px;
+            width: 100%;
+        }
+
+        /* Navigation Header */
+        .nav-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            background: rgba(26, 26, 46, 0.8);
+            padding: 16px 24px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+        }
+
+        .logo-text {
+            font-family: 'Cinzel', serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+            letter-spacing: 2px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 16px;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: #c9d4e8;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .nav-link:hover {
+            background: rgba(102, 126, 234, 0.2);
+            color: #667eea;
+        }
+
+        .nav-link.logout {
+            color: #ff6b6b;
+        }
+
+        .nav-link.logout:hover {
+            background: rgba(255, 107, 107, 0.2);
+            color: #ff8787;
+        }
+
+        /* Main Title Section */
+        .title-section {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .page-title {
+            font-family: 'Cinzel', serif;
+            font-size: 48px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        .page-subtitle {
+            font-family: 'Playfair Display', serif;
+            font-size: 18px;
+            font-weight: 400;
+            color: #a8b5d8;
+        }
+
+        /* Error Box */
+        .error-box {
+            background: rgba(255, 107, 107, 0.15);
+            border: 1px solid rgba(255, 107, 107, 0.5);
+            color: #ff8787;
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            font-size: 14px;
+        }
+
+        /* Scanner Container */
+        .scanner-container {
+            background: rgba(26, 26, 46, 0.9);
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            border-radius: 16px;
+            padding: 40px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        /* Upload Section */
+        .upload-section {
+            margin-bottom: 30px;
+        }
+
+        .section-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #667eea;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            display: block;
+        }
+
+        .upload-form-box {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .custom-file-upload {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+            border: 3px dashed rgba(102, 126, 234, 0.5);
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(100, 50, 120, 0.08));
+            cursor: pointer;
+            transition: all 0.3s ease;
+            gap: 12px;
+            padding: 20px;
+        }
+
+        .custom-file-upload:hover {
+            border-color: rgba(102, 126, 234, 0.8);
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(100, 50, 120, 0.15));
+        }
+
+        .upload-icon {
+            font-size: 48px;
+        }
+
+        .upload-title {
+            color: #c9d4e8;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .upload-sub {
+            color: #8899bb;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .file-upload-indicator {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(100, 50, 120, 0.15));
+            border: 2px solid rgba(102, 126, 234, 0.5);
+            border-radius: 12px;
+            gap: 12px;
+            color: #667eea;
+        }
+
+        .file-icon {
+            font-size: 40px;
+        }
+
+        .file-name {
+            color: #c9d4e8;
+            font-size: 14px;
+            font-weight: 500;
+            word-break: break-all;
+            text-align: center;
+            max-width: 200px;
+        }
+
+        /* Buttons */
+        .button-group {
+            display: flex;
+            gap: 12px;
+        }
+
+        .scan-button {
+            flex: 1;
+            padding: 14px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Poppins', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .scan-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .scan-button:active {
+            transform: translateY(0);
+        }
+
+        /* Or Separator */
+        .or-separator {
+            text-align: center;
+            color: #8899bb;
+            font-size: 13px;
+            font-weight: 500;
+            margin: 28px 0;
+            position: relative;
+        }
+
+        .or-separator::before,
+        .or-separator::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 35%;
+            height: 1px;
+            background: rgba(102, 126, 234, 0.3);
+        }
+
+        .or-separator::before {
+            left: 0;
+        }
+
+        .or-separator::after {
+            right: 0;
+        }
+
+        /* Search Form */
+        .search-by-name {
+            display: flex;
+            gap: 12px;
+        }
+
+        .search-by-name input {
+            flex: 1;
+            padding: 14px 16px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-radius: 8px;
+            color: #e9eef6;
+            font-size: 14px;
+            font-family: 'Poppins', sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        .search-by-name input::placeholder {
+            color: #8899bb;
+        }
+
+        .search-by-name input:focus {
+            outline: none;
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 0 12px rgba(102, 126, 234, 0.2);
+        }
+
+        .search-by-name .scan-button {
+            flex: 0 1 120px;
+        }
+
+        /* Loading Animation */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .loading-container {
+            text-align: center;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(102, 126, 234, 0.3);
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #e9eef6;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        /* Tips Box */
+        .tips-box {
+            background: rgba(26, 26, 46, 0.6);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            border-radius: 12px;
+            padding: 24px;
+            margin-top: 32px;
+        }
+
+        .tips-box h2 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            color: #667eea;
+            margin: 0 0 16px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tip-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .tips-box ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .tips-box li {
+            color: #c9d4e8;
+            font-size: 13px;
+            margin-bottom: 8px;
+            padding-left: 16px;
+            position: relative;
+        }
+
+        .tips-box li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .debug-link-container {
+            text-align: center;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(102, 126, 234, 0.2);
+        }
+
+        .debug-link {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 13px;
+            transition: all 0.3s ease;
+        }
+
+        .debug-link:hover {
+            color: #8899bb;
+            text-decoration: underline;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            color: #8899bb;
+            font-size: 12px;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(102, 126, 234, 0.2);
+        }
+
+        @media (max-width: 600px) {
+            .page-title {
+                font-size: 32px;
+            }
+
+            .scanner-container {
+                padding: 24px;
+            }
+
+            .tip-columns {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-links {
+                gap: 8px;
+                font-size: 12px;
+            }
+
+            .nav-link {
+                padding: 6px 12px;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .scan-button {
+                min-width: auto;
+            }
+
+            .search-by-name .scan-button {
+                flex: 0 1 auto;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="main-container">
-        <header>
-            <h1>
-                <span class="icon-star">✨</span> MTG Card <span class="accent">Scanner</span> <span class="icon-star">✨</span>
-            </h1>
-            <p class="subtitle">
-                Upload a photo of any Magic: The Gathering card and instantly get detailed information from the Scryfall database.
-            </p>
-        </header>
+        <!-- Navigation Header -->
+        <nav class="nav-header">
+            <div class="logo-text">✨ MTG SCANNER ✨</div>
+            <div class="nav-links">
+                <a href="{{ url_for('collection') }}" class="nav-link">📚 My Collection</a>
+                <a href="{{ url_for('logout') }}" class="nav-link logout">Logout</a>
+            </div>
+        </nav>
+
+        <!-- Title Section -->
+        <div class="title-section">
+            <h1 class="page-title">MTG Card Scanner</h1>
+            <p class="page-subtitle">Upload a photo of any Magic: The Gathering card and instantly get detailed information</p>
+        </div>
 
         {% if error %}
             <div class="error-box">{{ error }}</div>
         {% endif %}
-        
-        <div class="upload-section">
-            <form method="post" enctype="multipart/form-data" class="upload-form-box" id="imageUploadForm">
-                <input type="file" name="card_image" id="card_image_input" accept="image/*" required>
 
-                <label for="card_image_input" class="custom-file-upload" id="uploadLabel">
-                    <div class="upload-icon"><i class='bx bx-upload'></i></div>
-                    <div class="upload-title">Upload a Card Image</div>
-                    <div class="upload-sub">Drag and drop or click to browse<br>Supports JPG, PNG, WEBP up to 10MB</div>
-                </label>
+        <!-- Main Scanner Container -->
+        <div class="scanner-container">
+            <!-- Upload Section -->
+            <div class="upload-section">
+                <span class="section-label">📤 Upload Card Image</span>
+                <form method="post" enctype="multipart/form-data" class="upload-form-box" id="imageUploadForm">
+                    <input type="file" name="card_image" id="card_image_input" accept="image/*" required>
 
-                <!-- File upload indicator -->
-                <div class="file-upload-indicator" id="fileUploadIndicator" style="display: none;">
-                    <div class="file-icon">✓</div>
-                    <div class="file-name" id="uploadedFileName"></div>
-                </div>
+                    <label for="card_image_input" class="custom-file-upload" id="uploadLabel">
+                        <div class="upload-icon">📸</div>
+                        <div class="upload-title">Upload a Card Image</div>
+                        <div class="upload-sub">Drag and drop or click to browse<br>Supports JPG, PNG, WEBP up to 10MB</div>
+                    </label>
 
-                <button type="submit" class="scan-button" id="scanButton">
-                    <span class="icon-search">🔍</span> Scan Card
-                </button>
-            </form>
+                    <div class="file-upload-indicator" id="fileUploadIndicator">
+                        <div class="file-icon">✓</div>
+                        <div class="file-name" id="uploadedFileName"></div>
+                    </div>
 
-            <!-- Loading animation overlay -->
-            <div class="loading-overlay" id="loadingOverlay" style="display: none;">
-                <div class="loading-container">
-                    <div class="spinner"></div>
-                    <div class="loading-text">Scanning your card...</div>
+                    <div class="button-group">
+                        <button type="submit" class="scan-button" id="scanButton">
+                            🔍 Scan Card
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Loading Animation -->
+                <div class="loading-overlay" id="loadingOverlay">
+                    <div class="loading-container">
+                        <div class="spinner"></div>
+                        <div class="loading-text">Scanning your card...</div>
+                    </div>
                 </div>
             </div>
+
+            <!-- Separator -->
             <p class="or-separator">or</p>
-            <form method="post" class="search-by-name" style="margin-top:14px;">
-                <input type="text" name="card_name" placeholder="Enter card name..." required>
-                <button type="submit" class="scan-button" style="padding:10px 18px; border-radius:8px;">Search</button>
-            </form>
+
+            <!-- Search Section -->
+            <div class="upload-section">
+                <span class="section-label">🔎 Search by Name</span>
+                <form method="post" class="search-by-name">
+                    <input type="text" name="card_name" placeholder="Enter card name..." required>
+                    <button type="submit" class="scan-button">Search</button>
+                </form>
+            </div>
         </div>
 
+        <!-- Tips Box -->
         <div class="tips-box">
-            <h2><span class="icon-bulb">💡</span> Tips for Best Results</h2>
+            <h2>💡 Tips for Best Results</h2>
             <div class="tip-columns">
                 <ul>
                     <li>Use clear, high-quality images</li>
@@ -76,7 +542,7 @@
                 <a href="/debug" class="debug-link">Having issues? Try the debug mode.</a>
             </div>
         </div>
-        
+
         <footer>
             Powered by Scryfall API
         </footer>
@@ -108,21 +574,21 @@
         // Handle drag and drop
         uploadLabel.addEventListener('dragover', function(e) {
             e.preventDefault();
-            uploadLabel.style.background = 'rgba(244, 197, 66, 0.1)';
-            uploadLabel.style.borderColor = 'rgba(244, 197, 66, 0.3)';
+            uploadLabel.style.background = 'linear-gradient(135deg, rgba(102, 126, 234, 0.25), rgba(100, 50, 120, 0.25))';
+            uploadLabel.style.borderColor = 'rgba(102, 126, 234, 0.8)';
         });
 
         uploadLabel.addEventListener('dragleave', function(e) {
             e.preventDefault();
-            uploadLabel.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.015))';
-            uploadLabel.style.borderColor = 'rgba(255,255,255,0.04)';
+            uploadLabel.style.background = 'linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(100, 50, 120, 0.08))';
+            uploadLabel.style.borderColor = 'rgba(102, 126, 234, 0.5)';
         });
 
         uploadLabel.addEventListener('drop', function(e) {
             e.preventDefault();
-            uploadLabel.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.015))';
-            uploadLabel.style.borderColor = 'rgba(255,255,255,0.04)';
-            
+            uploadLabel.style.background = 'linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(100, 50, 120, 0.08))';
+            uploadLabel.style.borderColor = 'rgba(102, 126, 234, 0.5)';
+
             if (e.dataTransfer.files && e.dataTransfer.files[0]) {
                 fileInput.files = e.dataTransfer.files;
                 const event = new Event('change', { bubbles: true });

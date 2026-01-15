@@ -4,18 +4,329 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ details.name }} - MTG Card Scanner</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/result_style.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Playfair+Display:wght@700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #2a3a5f 0%, #3a1a4d 100%);
+            color: #e9eef6;
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .main-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 24px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .back-link:hover {
+            background: rgba(102, 126, 234, 0.2);
+            color: #8899bb;
+        }
+
+        .result-title {
+            font-family: 'Cinzel', serif;
+            font-size: 42px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 32px;
+            letter-spacing: 1px;
+        }
+
+        .result-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+            margin-bottom: 32px;
+        }
+
+        /* Card Image Section */
+        .card-image-section {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .card-art-image {
+            width: 100%;
+            max-width: 350px;
+            border-radius: 12px;
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            object-fit: cover;
+            background: rgba(26, 26, 46, 0.8);
+        }
+
+        .card-art-image.placeholder-image {
+            max-height: 500px;
+        }
+
+        .image-note {
+            color: #8899bb;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+
+        /* Card Details Section */
+        .card-details-section {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card-panel {
+            background: rgba(26, 26, 46, 0.9);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        /* Core Info Panel */
+        .title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .card-name-title {
+            font-family: 'Cinzel', serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .mana-cost {
+            font-family: 'Poppins', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            color: #f4c542;
+            background: rgba(244, 197, 66, 0.15);
+            padding: 6px 12px;
+            border-radius: 6px;
+            white-space: nowrap;
+        }
+
+        .type-line {
+            color: #a8b5d8;
+            font-size: 13px;
+            margin-bottom: 12px;
+            font-style: italic;
+        }
+
+        .oracle-text-box {
+            background: rgba(0, 0, 0, 0.3);
+            border-left: 3px solid #667eea;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #c9d4e8;
+            margin: 12px 0;
+        }
+
+        .oracle-text-box p {
+            margin: 0;
+        }
+
+        .pt-box {
+            background: rgba(244, 197, 66, 0.1);
+            border: 1px solid rgba(244, 197, 66, 0.3);
+            color: #f4c542;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            text-align: center;
+            font-size: 14px;
+            margin-top: 12px;
+        }
+
+        /* Metadata Panel */
+        .metadata-panel h3 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            color: #667eea;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+            font-size: 13px;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            color: #8899bb;
+            font-weight: 500;
+        }
+
+        .detail-value {
+            color: #c9d4e8;
+            font-weight: 500;
+        }
+
+        .rarity-common {
+            color: #999999;
+        }
+
+        .rarity-uncommon {
+            color: #b8860b;
+        }
+
+        .rarity-rare {
+            color: #ffd700;
+        }
+
+        .rarity-mythic {
+            color: #ff6b6b;
+        }
+
+        .price-value {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .button-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .button-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .button-secondary {
+            background: rgba(102, 126, 234, 0.2);
+            color: #667eea;
+            border: 1px solid rgba(102, 126, 234, 0.5);
+        }
+
+        .button-secondary:hover {
+            background: rgba(102, 126, 234, 0.3);
+        }
+
+        .button:active {
+            transform: translateY(0);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            color: #8899bb;
+            font-size: 12px;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(102, 126, 234, 0.2);
+        }
+
+        /* Success Message */
+        .success-message {
+            display: none;
+            background: rgba(102, 200, 150, 0.2);
+            border: 1px solid rgba(102, 200, 150, 0.5);
+            color: #66c896;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .result-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .result-title {
+                font-size: 32px;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .button {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="main-container">
-        
         <a href="/" class="back-link">⬅ Back to Scanner</a>
         
+        <div id="successMessage" class="success-message">✓ Card added to your collection!</div>
+
         <h1 class="result-title">{{ details.name }}</h1>
 
         <div class="result-layout">
-            
+            <!-- Card Image -->
             <div class="card-image-section">
                 {% if details.image_url %}
                 <img src="{{ details.image_url }}" alt="{{ details.name }}" class="card-art-image">
@@ -24,15 +335,16 @@
                 <p class="image-note">Displaying uploaded image.</p>
                 {% endif %}
             </div>
-            
+
+            <!-- Card Details -->
             <div class="card-details-section">
-                
+                <!-- Core Info Panel -->
                 <div class="card-panel core-info-panel">
                     <div class="title-row">
                         <span class="card-name-title">{{ details.name }}</span>
                         <span class="mana-cost">{{ details.mana_cost | replace('{', '') | replace('}', '') | replace('/', '') }}</span>
                     </div>
-                    
+
                     <p class="type-line">{{ details.type_line }}</p>
 
                     <div class="oracle-text-box">
@@ -46,27 +358,28 @@
                     {% endif %}
                 </div>
 
+                <!-- Metadata Panel -->
                 <div class="card-panel metadata-panel">
-                    <h3>Metadata & Price</h3>
-                    
+                    <h3>Card Details</h3>
+
                     <div class="detail-row">
-                        <span class="detail-label">Set:</span> 
+                        <span class="detail-label">Set:</span>
                         <span class="detail-value">{{ details.set }}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">Collector #:</span> 
+                        <span class="detail-label">Collector #:</span>
                         <span class="detail-value">{{ details.collector_number }}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">Rarity:</span> 
+                        <span class="detail-label">Rarity:</span>
                         <span class="detail-value rarity-{{ details.rarity }}">{{ details.rarity.title() }}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">Artist:</span> 
+                        <span class="detail-label">Artist:</span>
                         <span class="detail-value">{{ details.artist }}</span>
                     </div>
-                    <div class="detail-row price-row">
-                        <span class="detail-label">Price:</span> 
+                    <div class="detail-row">
+                        <span class="detail-label">Price:</span>
                         <span class="detail-value price-value">
                             {% if details.price_usd and details.price_usd != 'N/A' %}
                                 ${{ details.price_usd }} USD
@@ -75,14 +388,72 @@
                             {% endif %}
                         </span>
                     </div>
-                </div>
 
+                    <!-- Action Buttons -->
+                    <div class="action-buttons">
+                        <button class="button button-primary" id="addToCollectionBtn" onclick="addToCollection()">
+                            ➕ Add to Collection
+                        </button>
+                        <a href="/" class="button button-secondary" style="text-decoration: none;">
+                            🔄 Search Another
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
-        
+
         <footer>
             Powered by Scryfall API
         </footer>
     </div>
+
+    <script>
+        function addToCollection() {
+            const btn = document.getElementById('addToCollectionBtn');
+            const successMsg = document.getElementById('successMessage');
+
+            // Disable button and show loading state
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Adding...';
+
+            const cardData = {
+                card_name: "{{ details.name }}",
+                set_name: "{{ details.set }}",
+                rarity: "{{ details.rarity }}",
+                price_usd: "{{ details.price_usd if details.price_usd and details.price_usd != 'N/A' else 'N/A' }}",
+                image_url: "{{ details.image_url if details.image_url else '' }}",
+                collector_number: "{{ details.collector_number }}",
+                type_line: "{{ details.type_line }}",
+                mana_cost: "{{ details.mana_cost }}"
+            };
+
+            fetch('/add-card', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(cardData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    successMsg.style.display = 'block';
+                    btn.innerHTML = '✓ Added to Collection';
+                    btn.style.background = 'rgba(102, 200, 150, 0.3)';
+                    btn.style.color = '#66c896';
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to add card'));
+                    btn.disabled = false;
+                    btn.innerHTML = '➕ Add to Collection';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error adding card to collection');
+                btn.disabled = false;
+                btn.innerHTML = '➕ Add to Collection';
+            });
+        }
+    </script>
 </body>
 </html>

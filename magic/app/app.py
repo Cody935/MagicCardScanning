@@ -1,4 +1,7 @@
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect, session, url_for
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 import cv2
 import pytesseract
 import requests
@@ -6,11 +9,45 @@ import os
 import numpy as np
 from PIL import Image
 import io
+from datetime import datetime
 
 app = Flask(__name__)
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "static/uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+# Database Configuration
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cards.db'
+app.config['SECRET_KEY'] = 'your-secret-key-change-this'  # Change this to a random secret key
+db = SQLAlchemy(app)
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+# ---------------------------
+# Database Models
+# ---------------------------
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(150), unique=True, nullable=False)
+    password = db.Column(db.String(150), nullable=False)
+    cards = db.relationship('Card', backref='user', lazy=True, cascade='all, delete-orphan')
+
+class Card(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    card_name = db.Column(db.String(150), nullable=False)
+    set_name = db.Column(db.String(150))
+    rarity = db.Column(db.String(50))
+    price_usd = db.Column(db.String(50))
+    image_url = db.Column(db.String(500))
+    uploaded_image = db.Column(db.String(200))
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    card_data = db.Column(db.JSON)  # Store full card details as JSON
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 # Path to tesseract executable - Update this path for your environment!
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -250,9 +287,124 @@ def fetch_card_details(card_name):
     return None
 
 # ---------------------------
+# Authentication Routes
+# ---------------------------
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if not username or not password:
+            return render_template('register.html', error='Username and password are required.')
+        
+        if password != confirm_password:
+            return render_template('register.html', error='Passwords do not match.')
+        
+        if User.query.filter_by(username=username).first():
+            return render_template('register.html', error='Username already exists.')
+        
+        user = User(username=username, password=generate_password_hash(password))
+        db.session.add(user)
+        db.session.commit()
+        
+        return redirect(url_for('login'))
+    
+    return render_template('register.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        user = User.query.filter_by(username=username).first()
+        
+        if user and check_password_hash(user.password, password):
+            login_user(user)
+            return redirect(url_for('upload_card'))
+        else:
+            return render_template('login.html', error='Invalid username or password.')
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
+@app.route('/collection')
+@login_required
+def collection():
+    """View user's card collection"""
+    cards = Card.query.filter_by(user_id=current_user.id).all()
+    return render_template('collection.html', cards=cards)
+
+@app.route('/delete-card/<int:card_id>', methods=['POST'])
+@login_required
+def delete_card(card_id):
+    """Delete a card from user's collection"""
+    card = Card.query.get(card_id)
+    if card and card.user_id == current_user.id:
+        db.session.delete(card)
+        db.session.commit()
+    return redirect(url_for('collection'))
+
+@app.route('/add-card', methods=['POST'])
+@login_required
+def add_card():
+    """Add a card to user's collection from result page or search"""
+    from flask import jsonify
+    
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        if not data or not data.get('card_name'):
+            return jsonify({'success': False, 'error': 'Invalid card data'}), 400
+        
+        # Check if card already exists in user's collection
+        existing_card = Card.query.filter_by(
+            user_id=current_user.id,
+            card_name=data.get('card_name'),
+            set_name=data.get('set_name', '')
+        ).first()
+        
+        if existing_card:
+            return jsonify({'success': False, 'error': 'Card already in collection'}), 409
+        
+        # Create new card entry
+        card = Card(
+            user_id=current_user.id,
+            card_name=data.get('card_name'),
+            set_name=data.get('set_name', ''),
+            rarity=data.get('rarity', ''),
+            price_usd=data.get('price_usd', ''),
+            image_url=data.get('image_url', ''),
+            card_data={
+                'collector_number': data.get('collector_number', ''),
+                'type_line': data.get('type_line', ''),
+                'mana_cost': data.get('mana_cost', '')
+            }
+        )
+        
+        db.session.add(card)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Card added to collection'}), 201
+    
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error adding card: {str(e)}")
+        return jsonify({'success': False, 'error': 'Server error'}), 500
+
+# ---------------------------
 # Flask Routes
 # ---------------------------
 @app.route("/", methods=["GET", "POST"])
+@login_required
 def upload_card():
     if request.method == "POST":
         # If user submitted a card name via the search box
@@ -298,6 +450,20 @@ def upload_card():
         if not details:
             return render_template("index.html", error=f"No Magic card found for '{card_name}'. Try a different image or check the card name.")
         
+        # Save card to database
+        card = Card(
+            user_id=current_user.id,
+            card_name=details['name'],
+            set_name=details['set'],
+            rarity=details['rarity'],
+            price_usd=str(details['price_usd']),
+            image_url=details['image_url'],
+            uploaded_image=file.filename,
+            card_data=details
+        )
+        db.session.add(card)
+        db.session.commit()
+        
         return render_template(
             "result.html",
             card_name=card_name,
@@ -308,6 +474,7 @@ def upload_card():
     return render_template("index.html")
 
 @app.route("/debug", methods=["GET", "POST"])
+@login_required
 def debug_upload():
     """Debug route to see what OCR is detecting"""
     if request.method == "POST":
@@ -352,4 +519,9 @@ if __name__ == "__main__":
     # Ensure you have a 'static' directory and a 'static/uploads' directory
     # Also ensure you create a 'static/css' folder for the new style.css file
     os.makedirs(os.path.join(os.path.dirname(__file__), "static/css"), exist_ok=True)
+    
+    # Create database tables
+    with app.app_context():
+        db.create_all()
+    
     app.run(debug=True, host='0.0.0.0', port=5000)
