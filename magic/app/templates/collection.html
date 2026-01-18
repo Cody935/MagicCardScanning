@@ -6,6 +6,7 @@
     <title>My Collection - Magic Card Scanner</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Playfair+Display:wght@700&family=Cinzel:wght@700;900&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {
             margin: 0;
@@ -159,6 +160,41 @@
             color: white;
         }
 
+        .stat-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(42, 42, 62, 0.95);
+            border: 1px solid rgba(102, 126, 234, 0.5);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            min-width: 250px;
+            z-index: 1000;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            width: auto;
+        }
+
+        .stat-dropdown.active {
+            display: block;
+        }
+
+        .stat-dropdown-item {
+            padding: 10px 12px;
+            color: #e0e0e0;
+            font-size: 13px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            margin-bottom: 5px;
+        }
+
+        .stat-dropdown-item:last-child {
+            margin-bottom: 0;
+        }
+
         .stat-number {
             font-size: 42px;
             font-weight: 700;
@@ -177,7 +213,7 @@
 
         .collection-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            grid-template-columns: repeat(2, 1fr);
             gap: 25px;
             margin-top: 30px;
         }
@@ -251,9 +287,14 @@
         .card-actions {
             display: flex;
             gap: 10px;
+            margin-top: 15px;
         }
 
-        .card-actions button {
+        .card-actions form {
+            width: 100%;
+        }
+
+        .card-actions button, .card-actions a {
             flex: 1;
             padding: 10px;
             border: none;
@@ -263,6 +304,11 @@
             transition: all 0.3s ease;
             font-size: 13px;
             font-family: 'Poppins', sans-serif;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
         }
 
         .btn-delete {
@@ -274,6 +320,201 @@
         .btn-delete:hover {
             background: rgba(231, 76, 60, 0.3);
             border-color: rgba(231, 76, 60, 0.8);
+        }
+
+        .btn-price-graph {
+            background: rgba(102, 126, 234, 0.2);
+            color: #667eea;
+            border: 1px solid rgba(102, 126, 234, 0.5);
+        }
+
+        .btn-price-graph:hover {
+            background: rgba(102, 126, 234, 0.3);
+            border-color: rgba(102, 126, 234, 0.8);
+        }
+
+        .btn-select-art {
+            background: rgba(34, 193, 138, 0.2);
+            color: #22c18a;
+            border: 1px solid rgba(34, 193, 138, 0.5);
+        }
+
+        .btn-select-art:hover {
+            background: rgba(34, 193, 138, 0.3);
+            border-color: rgba(34, 193, 138, 0.8);
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: rgba(26, 26, 46, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            border: 1px solid rgba(102, 126, 234, 0.5);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            color: white;
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .modal-close {
+            background: rgba(231, 76, 60, 0.2);
+            color: #ff6b6b;
+            border: 1px solid rgba(231, 76, 60, 0.5);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .modal-close:hover {
+            background: rgba(231, 76, 60, 0.3);
+            border-color: rgba(231, 76, 60, 0.8);
+        }
+
+        .art-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .art-item {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            cursor: pointer;
+            border: 2px solid rgba(102, 126, 234, 0.2);
+            transition: all 0.3s ease;
+            background: rgba(42, 42, 62, 0.5);
+            aspect-ratio: 2.5 / 3.5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .art-item img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .art-item:hover {
+            border-color: rgba(102, 126, 234, 0.8);
+            transform: scale(1.05);
+        }
+
+        .art-item.selected {
+            border-color: #22c18a;
+            background: rgba(34, 193, 138, 0.2);
+            box-shadow: 0 0 15px rgba(34, 193, 138, 0.5);
+        }
+
+        .art-item.selected::after {
+            content: "✓";
+            position: absolute;
+            top: 5px;
+            right: 8px;
+            background: #22c18a;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .modal-actions button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+        }
+
+        .btn-confirm {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-confirm:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-confirm:disabled {
+            background: rgba(102, 126, 234, 0.3);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .time-range-btn {
+            padding: 10px 20px;
+            background: rgba(102, 126, 234, 0.1);
+            color: #aaa;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-family: 'Poppins', sans-serif;
+            font-size: 13px;
+        }
+
+        .time-range-btn:hover {
+            border-color: rgba(102, 126, 234, 0.6);
+            color: #e0e0e0;
+        }
+
+        .time-range-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: transparent;
+            color: white;
         }
 
         .empty-message {
@@ -439,13 +680,32 @@
                     {% endfor %}
                 </div>
             </div>
-            <div class="stat-box">
+            <div class="stat-box clickable" id="raritiesBox">
                 <div class="stat-number">{{ cards|map(attribute='rarity')|unique|list|length }}</div>
                 <div class="stat-label">Rarities</div>
+                <div class="stat-dropdown" id="raritiesDropdown">
+                    {% set rarity_counts = {} %}
+                    {% for card in cards %}
+                        {% set _ = rarity_counts.update({card.rarity: rarity_counts.get(card.rarity, 0) + 1}) %}
+                    {% endfor %}
+                    {% for rarity in ['Mythic Rare', 'Rare', 'Uncommon', 'Common', 'Land'] %}
+                        {% if rarity in rarity_counts %}
+                            <div class="stat-dropdown-item">{{ rarity_counts[rarity] }} {{ rarity }}{{ 's' if rarity_counts[rarity] != 1 else '' }}</div>
+                        {% endif %}
+                    {% endfor %}
+                    {% for rarity, count in rarity_counts.items() %}
+                        {% if rarity not in ['Mythic Rare', 'Rare', 'Uncommon', 'Common', 'Land'] %}
+                            <div class="stat-dropdown-item">{{ count }} {{ rarity }}{{ 's' if count != 1 else '' }}</div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
             </div>
-            <div class="stat-box">
+            <div class="stat-box clickable" id="priceBox">
                 <div class="stat-number">${{ "%.2f"|format(cards|map(attribute='price_usd')|map('replace', '$', '')|map('float', 0)|sum) }}</div>
                 <div class="stat-label">Total Value</div>
+                <div class="stat-dropdown" id="priceDropdown">
+                    <!-- Top 5 most expensive cards will be populated here by JavaScript -->
+                </div>
             </div>
         </div>
 
@@ -493,10 +753,22 @@
 
                 <button class="filter-reset" id="resetFilters">Clear All Filters</button>
             </div>
+
+            <!-- Rarity Breakdown Display -->
+            <div id="rarityBreakdown" style="display: none; background: rgba(102, 126, 234, 0.15); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 10px; padding: 20px; margin: 30px 0; text-align: center;">
+                <h3 style="color: #e0e0e0; margin-top: 0; margin-bottom: 15px;" id="rarityBreakdownTitle">Rarity Breakdown</h3>
+                <div id="rarityStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px;">
+                    <!-- Stats will be populated here -->
+                </div>
+            </div>
+
+            <div class="collection-grid">
                 {% for card in cards %}
-                    <div class="card-item" data-set="{{ card.set_name }}" data-rarity="{{ card.rarity }}" data-price="{{ card.price_usd }}" data-name="{{ card.card_name }}">
-                        <div class="card-image">
-                            {% if card.image_url %}
+                    <div class="card-item" data-set="{{ card.set_name }}" data-rarity="{{ card.rarity }}" data-price="{{ card.price_usd }}" data-name="{{ card.card_name }}" data-card-id="{{ card.id }}">
+                        <div class="card-image" style="cursor: pointer;" onclick="openArtSelectionModal({{ card.id }}, '{{ card.card_name }}', {{ card.card_data|tojson|safe }})">
+                            {% if card.selected_art_url %}
+                                <img src="{{ card.selected_art_url }}" alt="{{ card.card_name }}">
+                            {% elif card.image_url %}
                                 <img src="{{ card.image_url }}" alt="{{ card.card_name }}">
                             {% else %}
                                 <span>No Image Available</span>
@@ -511,9 +783,11 @@
                                 <div><span class="detail-label">Added:</span> {{ card.uploaded_at.strftime('%b %d, %Y') }}</div>
                             </div>
                             <div class="card-actions">
-                                <form method="POST" action="{{ url_for('delete_card', card_id=card.id) }}" style="width: 100%;">
-                                    <button type="submit" class="btn-delete" onclick="return confirm('Remove this card from your collection?')">Delete</button>
+                                <form method="POST" action="{{ url_for('delete_card', card_id=card.id) }}" style="width: auto; flex: 1;">
+                                    <button type="submit" class="btn-delete" onclick="return confirm('Remove this card from your collection?')" style="width: 100%;">Delete</button>
                                 </form>
+                                <a href="#" onclick="openArtSelectionModal({{ card.id }}, '{{ card.card_name }}', {{ card.card_data|tojson|safe }}); return false;" class="btn-select-art" title="Choose card art">🎨 Choose Art</a>
+                                <a href="#" onclick="openPriceGraph({{ card.id }}, '{{ card.card_name }}', '{{ card.uploaded_at.isoformat() }}'); return false;" class="btn-price-graph" title="View price history on TCGPlayer">📈 Price Graph</a>
                             </div>
                         </div>
                     </div>
@@ -527,6 +801,49 @@
                 <a href="{{ url_for('upload_card') }}">Upload Your First Card</a>
             </div>
         {% endif %}
+    </div>
+
+    <!-- Price Graph Modal -->
+    <div id="priceGraphModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2 id="priceGraphTitle">Price History</h2>
+                <button class="modal-close" onclick="closePriceGraphModal()">Close</button>
+            </div>
+            <div style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center;">
+                <button class="time-range-btn active" onclick="updatePriceChart(30)">30 Days</button>
+                <button class="time-range-btn" onclick="updatePriceChart(180)">6 Months</button>
+                <button class="time-range-btn" onclick="updatePriceChart(365)">1 Year</button>
+            </div>
+            <div id="priceGraphContainer" style="position: relative; height: 400px; margin: 20px 0;">
+                <canvas id="priceChart"></canvas>
+            </div>
+            <div style="background: rgba(102, 126, 234, 0.15); border-left: 3px solid #667eea; padding: 12px 15px; border-radius: 5px; margin: 15px 0; color: #bbb; font-size: 13px;">
+                <strong>💡 Note:</strong> This chart tracks price changes while the card is in your collection. Price history starts from when you added the card and will update as prices are recorded.
+            </div>
+            <div id="priceInfo" style="color: #aaa; font-size: 14px; margin-top: 20px;">
+                <!-- Price info will be populated here -->
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <a id="tcgplayerLink" href="#" target="_blank" class="btn-primary" style="display: inline-block; padding: 12px 28px; text-decoration: none; border-radius: 10px;">View on TCGPlayer</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Art Selection Modal -->
+    <div id="artSelectionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Select Card Art</h2>
+                <button class="modal-close" onclick="closeArtSelectionModal()">Close</button>
+            </div>
+            <div id="artGridContainer">
+                <!-- Art options will be populated here -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn-confirm" id="confirmArtBtn" onclick="confirmArtSelection()" disabled>Select This Art</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -628,6 +945,24 @@
                 const filterType = this.dataset.filter;
                 const filterValue = this.dataset.value;
 
+                // Special handling for rarity buttons - show breakdown AND filter
+                if (filterType === 'rarity') {
+                    showRarityBreakdown();
+                    
+                    if (activeFilters[filterType] === filterValue) {
+                        activeFilters[filterType] = null;
+                    } else {
+                        activeFilters[filterType] = filterValue;
+                    }
+                    
+                    updateFilterButtons();
+                    filterCards();
+                    return;
+                }
+
+                // Hide breakdown when clicking other filter types
+                hideRarityBreakdown();
+
                 if (activeFilters[filterType] === filterValue) {
                     activeFilters[filterType] = null;
                 } else {
@@ -639,11 +974,64 @@
             });
         });
 
+        function showRarityBreakdown() {
+            // Count cards by rarity from currently visible cards
+            const allCards = document.querySelectorAll('.card-item');
+            const rarityMap = {};
+            
+            allCards.forEach(card => {
+                const rarity = card.dataset.rarity;
+                if (rarity) {
+                    rarityMap[rarity] = (rarityMap[rarity] || 0) + 1;
+                }
+            });
+            
+            // Generate breakdown HTML
+            const breakdownDiv = document.getElementById('rarityBreakdown');
+            const titleEl = document.getElementById('rarityBreakdownTitle');
+            const statsEl = document.getElementById('rarityStats');
+            
+            titleEl.textContent = 'Collection Breakdown';
+            statsEl.innerHTML = '';
+            
+            const totalCards = allCards.length;
+            
+            // Sort rarities in a meaningful order
+            const rarityOrder = ['Mythic Rare', 'Rare', 'Uncommon', 'Common', 'Land', 'Special'];
+            const sortedRarities = Object.keys(rarityMap).sort((a, b) => {
+                const aIndex = rarityOrder.indexOf(a);
+                const bIndex = rarityOrder.indexOf(b);
+                if (aIndex === -1) return 1;
+                if (bIndex === -1) return -1;
+                return aIndex - bIndex;
+            });
+            
+            sortedRarities.forEach(rarity => {
+                const count = rarityMap[rarity];
+                const percentage = totalCards > 0 ? ((count / totalCards) * 100).toFixed(1) : 0;
+                const div = document.createElement('div');
+                div.style.cssText = 'background: rgba(34, 193, 138, 0.2); padding: 12px; border-radius: 8px; border: 1px solid rgba(34, 193, 138, 0.3);';
+                div.innerHTML = `
+                    <div style="font-size: 18px; font-weight: 600; color: #22c18a;">${count}</div>
+                    <div style="font-size: 13px; color: #aaa;">${rarity}</div>
+                    <div style="font-size: 11px; color: #888;">${percentage}%</div>
+                `;
+                statsEl.appendChild(div);
+            });
+            
+            breakdownDiv.style.display = 'block';
+        }
+
+        function hideRarityBreakdown() {
+            document.getElementById('rarityBreakdown').style.display = 'none';
+        }
+
         document.getElementById('resetFilters').addEventListener('click', function() {
             activeFilters = { set: null, rarity: null, price: null };
             searchTerm = '';
             document.getElementById('searchBar').value = '';
             updateFilterButtons();
+            hideRarityBreakdown();
             filterCards();
             location.reload();
         });
@@ -651,23 +1039,398 @@
         // Sets dropdown functionality
         const setsBox = document.getElementById('setsBox');
         const setsDropdown = document.getElementById('setsDropdown');
+        const raritiesBox = document.getElementById('raritiesBox');
+        const raritiesDropdown = document.getElementById('raritiesDropdown');
+        const priceBox = document.getElementById('priceBox');
+        const priceDropdown = document.getElementById('priceDropdown');
         const statsContainer = document.querySelector('.stats');
 
         setsBox.addEventListener('click', function(e) {
             e.stopPropagation();
+            // Close other dropdowns
+            raritiesDropdown.classList.remove('active');
+            priceDropdown.classList.remove('active');
+            
             setsDropdown.classList.toggle('active');
             statsContainer.classList.toggle('dropdown-open');
         });
 
+        raritiesBox.addEventListener('click', function(e) {
+            e.stopPropagation();
+            // Close other dropdowns
+            setsDropdown.classList.remove('active');
+            priceDropdown.classList.remove('active');
+            
+            raritiesDropdown.classList.toggle('active');
+            statsContainer.classList.toggle('dropdown-open');
+        });
+
+        raritiesDropdown.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+
+        priceBox.addEventListener('click', function(e) {
+            e.stopPropagation();
+            // Close other dropdowns
+            setsDropdown.classList.remove('active');
+            raritiesDropdown.classList.remove('active');
+            
+            // Populate top 5 cards if not already done
+            if (priceDropdown.children.length === 0) {
+                populateTopCards();
+            }
+            
+        priceDropdown.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+
+            priceDropdown.classList.toggle('active');
+            statsContainer.classList.toggle('dropdown-open');
+        });
+
+        function populateTopCards() {
+            const allCards = document.querySelectorAll('.card-item');
+            const cardsArray = [];
+            
+            allCards.forEach(card => {
+                const priceStr = card.dataset.price;
+                const price = parseFloat(priceStr.replace('$', '')) || 0;
+                cardsArray.push({
+                    name: card.dataset.name,
+                    price: price,
+                    priceStr: priceStr
+                });
+            });
+            
+            // Sort by price descending and take top 5
+            cardsArray.sort((a, b) => b.price - a.price);
+            const topCards = cardsArray.slice(0, 5);
+            
+            // Generate HTML
+            priceDropdown.innerHTML = '';
+            if (topCards.length === 0) {
+                priceDropdown.innerHTML = '<div class="stat-dropdown-item">No cards yet</div>';
+                return;
+            }
+            
+            topCards.forEach((card, index) => {
+                const div = document.createElement('div');
+                div.className = 'stat-dropdown-item';
+                div.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+                div.innerHTML = `
+                    <span>${index + 1}. ${card.name}</span>
+                    <span style="color: #22c18a; font-weight: 600;">$${card.price.toFixed(2)}</span>
+                `;
+                priceDropdown.appendChild(div);
+            });
+        }
+
         // Close dropdown when clicking outside
         document.addEventListener('click', function() {
             setsDropdown.classList.remove('active');
+            raritiesDropdown.classList.remove('active');
+            priceDropdown.classList.remove('active');
             statsContainer.classList.remove('dropdown-open');
         });
 
-        // Close dropdown when clicking on the dropdown itself
+        // Prevent closing when clicking on dropdowns
         setsDropdown.addEventListener('click', function(e) {
             e.stopPropagation();
+        });
+        raritiesDropdown.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+        priceDropdown.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+
+        // Art Selection Modal Functions
+        let currentCardId = null;
+        let selectedArtUrl = null;
+
+        let selectedArtObject = null;
+
+        function openArtSelectionModal(cardId, cardName, cardData) {
+            currentCardId = cardId;
+            selectedArtUrl = null;
+            selectedArtObject = null;
+
+            const modal = document.getElementById('artSelectionModal');
+            const gridContainer = document.getElementById('artGridContainer');
+            
+            // Clear previous content
+            gridContainer.innerHTML = '';
+
+            if (!cardData || !cardData.alternative_arts || cardData.alternative_arts.length === 0) {
+                gridContainer.innerHTML = '<p style="color: #aaa; text-align: center; padding: 20px;">No alternative card arts available for this card.</p>';
+                modal.classList.add('active');
+                return;
+            }
+
+            const artGrid = document.createElement('div');
+            artGrid.className = 'art-grid';
+            
+            cardData.alternative_arts.forEach((art, index) => {
+                const artItem = document.createElement('div');
+                artItem.className = 'art-item';
+                artItem.innerHTML = `<img src="${art.image_url}" alt="${art.set || 'Art ' + (index + 1)}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22150%22 height=%22210%22%3E%3Crect fill=%22%23444%22 width=%22150%22 height=%22210%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23999%22 text-anchor=%22middle%22 dy=%22.3em%22%3EImage Error%3C/text%3E%3C/svg%3E'">`;
+                artItem.title = `${art.set} - ${art.rarity}`;
+                artItem.onclick = function() {
+                    document.querySelectorAll('.art-item').forEach(item => item.classList.remove('selected'));
+                    this.classList.add('selected');
+                    selectedArtUrl = art.image_url;
+                    selectedArtObject = art;
+                    document.getElementById('confirmArtBtn').disabled = false;
+                };
+                artGrid.appendChild(artItem);
+            });
+            
+            gridContainer.appendChild(artGrid);
+            modal.classList.add('active');
+        }
+
+        function closeArtSelectionModal() {
+            const modal = document.getElementById('artSelectionModal');
+            modal.classList.remove('active');
+            currentCardId = null;
+            selectedArtUrl = null;
+        }
+
+        function confirmArtSelection() {
+            if (!selectedArtUrl || !currentCardId || !selectedArtObject) return;
+
+            fetch(`/update-card-art/${currentCardId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    image_url: selectedArtUrl,
+                    set_name: selectedArtObject.set || '',
+                    rarity: selectedArtObject.rarity || '',
+                    set_code: selectedArtObject.set_code || ''
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update the card image on the page
+                    const cardItem = document.querySelector(`[data-card-id="${currentCardId}"]`);
+                    if (cardItem) {
+                        const img = cardItem.querySelector('.card-image img');
+                        if (img) {
+                            img.src = selectedArtUrl;
+                        }
+                        // Update the card details
+                        const setEl = cardItem.querySelector('.card-details div:nth-child(1)');
+                        const rarityEl = cardItem.querySelector('.card-details div:nth-child(2)');
+                        if (setEl) setEl.innerHTML = `<span class="detail-label">Set:</span> ${selectedArtObject.set || 'Unknown'}`;
+                        if (rarityEl) rarityEl.innerHTML = `<span class="detail-label">Rarity:</span> ${selectedArtObject.rarity || 'Unknown'}`;
+                        // Update data attributes for filtering
+                        cardItem.setAttribute('data-set', selectedArtObject.set || '');
+                        cardItem.setAttribute('data-rarity', selectedArtObject.rarity || '');
+                    }
+                    closeArtSelectionModal();
+                    alert('Card art, set, and rarity updated successfully!');
+                } else {
+                    alert('Error updating card: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error updating card:', error);
+                alert('Error updating card. Please try again.');
+            });
+        }
+
+        function openPriceGraph(cardId, cardName, uploadedDate) {
+            const modal = document.getElementById('priceGraphModal');
+            const titleEl = document.getElementById('priceGraphTitle');
+            const infoEl = document.getElementById('priceInfo');
+            const linkEl = document.getElementById('tcgplayerLink');
+            
+            titleEl.textContent = `${cardName} - Price History`;
+            infoEl.innerHTML = '<p style="text-align: center;">Loading price data...</p>';
+            modal.classList.add('active');
+            
+            // Store current card ID for later use
+            window.currentPriceGraphCardId = cardId;
+            
+            // Reset time range buttons
+            document.querySelectorAll('.time-range-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.time-range-btn')[0].classList.add('active');
+            
+            // Calculate days since card was added
+            const addedDate = new Date(uploadedDate);
+            const today = new Date();
+            const daysSinceAdded = Math.floor((today - addedDate) / (1000 * 60 * 60 * 24));
+            
+            // Show/hide buttons based on days since added
+            const timeRangeBtns = document.querySelectorAll('.time-range-btn');
+            timeRangeBtns[1].style.display = daysSinceAdded >= 180 ? 'block' : 'none';  // 6 months
+            timeRangeBtns[2].style.display = daysSinceAdded >= 365 ? 'block' : 'none';  // 1 year
+            
+            // First fetch card info to get TCGPlayer ID and set link
+            fetch(`/api/card-info/${cardId}`)
+                .then(response => {
+                    console.log('Card info response:', response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Card info data:', data);
+                    
+                    if (data.tcgplayer_id && data.tcgplayer_id !== 'N/A' && data.tcgplayer_id !== 0) {
+                        linkEl.href = `https://www.tcgplayer.com/product/${data.tcgplayer_id}`;
+                        linkEl.style.display = 'inline-block';
+                        console.log('Set TCGPlayer link to:', linkEl.href);
+                    } else {
+                        console.log('No valid TCGPlayer ID, hiding link');
+                        linkEl.style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching card info:', error);
+                    linkEl.style.display = 'none';
+                });
+            
+            // Fetch initial price history (30 days)
+            updatePriceChart(30);
+        }
+
+        function updatePriceChart(days) {
+            const cardId = window.currentPriceGraphCardId;
+            const infoEl = document.getElementById('priceInfo');
+            
+            // Update active button
+            document.querySelectorAll('.time-range-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            infoEl.innerHTML = '<p style="text-align: center;">Loading price data...</p>';
+            
+            // Fetch price history with specified days
+            fetch(`/api/price-history/${cardId}/${days}`)
+                .then(response => {
+                    console.log('Price history response:', response.status);
+                    return response.json();
+                })
+                .then(priceData => {
+                    console.log('Price data:', priceData);
+                    
+                    if (priceData.prices && priceData.prices.length > 0) {
+                        displayPriceChart(priceData);
+                        infoEl.innerHTML = `
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; text-align: center;">
+                                <div>
+                                    <div style="color: #667eea; font-weight: 600;">Current Price</div>
+                                    <div style="font-size: 20px; color: white; margin-top: 5px;">${priceData.current_price || 'N/A'}</div>
+                                </div>
+                                <div>
+                                    <div style="color: #667eea; font-weight: 600;">Highest</div>
+                                    <div style="font-size: 20px; color: #22c18a; margin-top: 5px;">${priceData.highest_price || 'N/A'}</div>
+                                </div>
+                                <div>
+                                    <div style="color: #667eea; font-weight: 600;">Lowest</div>
+                                    <div style="font-size: 20px; color: #ff6b6b; margin-top: 5px;">${priceData.lowest_price || 'N/A'}</div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        console.log('No price data available');
+                        infoEl.innerHTML = '<p style="color: #ff6b6b; text-align: center;">No price history data available.</p>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching price data:', error);
+                    infoEl.innerHTML = '<p style="color: #ff6b6b; text-align: center;">Error loading price data: ' + error.message + '</p>';
+                });
+        }
+
+        function displayPriceChart(priceData) {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (window.priceChartInstance) {
+                window.priceChartInstance.destroy();
+            }
+            
+            // Check if we have any price data
+            if (!priceData.prices || priceData.prices.length === 0) {
+                const canvas = document.getElementById('priceChart');
+                const parent = canvas.parentElement;
+                parent.innerHTML = '<p style="text-align: center; color: #aaa; padding: 20px;">No price data available.</p>' + parent.innerHTML;
+                return;
+            }
+            
+            const dates = priceData.prices.map(p => p.date);
+            const prices = priceData.prices.map(p => p.price || null);
+            
+            window.priceChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: 'Card Price (USD)',
+                            data: prices,
+                            borderColor: '#22c18a',
+                            backgroundColor: 'rgba(34, 193, 138, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            borderWidth: 2,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#22c18a',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 1,
+                            pointHoverRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#e0e0e0',
+                                font: { family: "'Poppins', sans-serif", size: 12 }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { 
+                                color: '#aaa',
+                                callback: function(value) {
+                                    return '$' + value.toFixed(2);
+                                }
+                            },
+                            grid: { color: 'rgba(102, 126, 234, 0.1)' }
+                        },
+                        x: {
+                            ticks: { color: '#aaa' },
+                            grid: { color: 'rgba(102, 126, 234, 0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function closePriceGraphModal() {
+            document.getElementById('priceGraphModal').classList.remove('active');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('priceGraphModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closePriceGraphModal();
+            }
+        });
+
+        // Close modal when clicking outside
+        document.getElementById('artSelectionModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeArtSelectionModal();
+            }
         });
     </script>
 </html>
