@@ -786,7 +786,7 @@
                                 <form method="POST" action="{{ url_for('delete_card', card_id=card.id) }}" style="width: auto; flex: 1;">
                                     <button type="submit" class="btn-delete" onclick="return confirm('Remove this card from your collection?')" style="width: 100%;">Delete</button>
                                 </form>
-                                <a href="#" onclick="openArtSelectionModal({{ card.id }}, '{{ card.card_name }}', {{ card.card_data|tojson|safe }}); return false;" class="btn-select-art" title="Choose card art">🎨 Choose Art</a>
+                                <button type="button" onclick="openArtSelectionModal({{ card.id }}, '{{ card.card_name }}');" class="btn-select-art" title="Choose card art">🎨 Choose Art</button>
                                 <a href="#" onclick="openPriceGraph({{ card.id }}, '{{ card.card_name }}', '{{ card.uploaded_at.isoformat() }}'); return false;" class="btn-price-graph" title="View price history on TCGPlayer">📈 Price Graph</a>
                             </div>
                         </div>
@@ -1150,7 +1150,8 @@
 
         let selectedArtObject = null;
 
-        function openArtSelectionModal(cardId, cardName, cardData) {
+        function openArtSelectionModal(cardId, cardName) {
+            console.log('openArtSelectionModal called with:', cardId, cardName);
             currentCardId = cardId;
             selectedArtUrl = null;
             selectedArtObject = null;
@@ -1158,35 +1159,75 @@
             const modal = document.getElementById('artSelectionModal');
             const gridContainer = document.getElementById('artGridContainer');
             
-            // Clear previous content
-            gridContainer.innerHTML = '';
-
-            if (!cardData || !cardData.alternative_arts || cardData.alternative_arts.length === 0) {
-                gridContainer.innerHTML = '<p style="color: #aaa; text-align: center; padding: 20px;">No alternative card arts available for this card.</p>';
-                modal.classList.add('active');
+            console.log('Modal element:', modal);
+            console.log('Grid container:', gridContainer);
+            
+            if (!modal || !gridContainer) {
+                console.error('Modal or grid container not found!');
                 return;
             }
-
-            const artGrid = document.createElement('div');
-            artGrid.className = 'art-grid';
             
-            cardData.alternative_arts.forEach((art, index) => {
-                const artItem = document.createElement('div');
-                artItem.className = 'art-item';
-                artItem.innerHTML = `<img src="${art.image_url}" alt="${art.set || 'Art ' + (index + 1)}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22150%22 height=%22210%22%3E%3Crect fill=%22%23444%22 width=%22150%22 height=%22210%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23999%22 text-anchor=%22middle%22 dy=%22.3em%22%3EImage Error%3C/text%3E%3C/svg%3E'">`;
-                artItem.title = `${art.set} - ${art.rarity}`;
-                artItem.onclick = function() {
-                    document.querySelectorAll('.art-item').forEach(item => item.classList.remove('selected'));
-                    this.classList.add('selected');
-                    selectedArtUrl = art.image_url;
-                    selectedArtObject = art;
-                    document.getElementById('confirmArtBtn').disabled = false;
-                };
-                artGrid.appendChild(artItem);
-            });
-            
-            gridContainer.appendChild(artGrid);
+            // Clear previous content and show loading
+            gridContainer.innerHTML = '<p style="color: #aaa; text-align: center; padding: 20px;">Fetching card arts from Scryfall...</p>';
             modal.classList.add('active');
+            console.log('Modal classes:', modal.className);
+
+            // Fetch alternative arts from Scryfall API
+            const searchUrl = `https://api.scryfall.com/cards/search?q=!"${encodeURIComponent(cardName)}"&unique=prints`;
+            console.log('Fetching from:', searchUrl);
+            
+            fetch(searchUrl)
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Scryfall data:', data);
+                    if (!data.data || data.data.length === 0) {
+                        gridContainer.innerHTML = '<p style="color: #aaa; text-align: center; padding: 20px;">No alternative card arts available for this card.</p>';
+                        return;
+                    }
+
+                    const artGrid = document.createElement('div');
+                    artGrid.className = 'art-grid';
+                    
+                    data.data.forEach((card_print, index) => {
+                        let art_url = null;
+                        if (card_print.image_uris && card_print.image_uris.normal) {
+                            art_url = card_print.image_uris.normal;
+                        } else if (card_print.card_faces && card_print.card_faces[0] && card_print.card_faces[0].image_uris) {
+                            art_url = card_print.card_faces[0].image_uris.normal;
+                        }
+
+                        if (art_url) {
+                            const artItem = document.createElement('div');
+                            artItem.className = 'art-item';
+                            artItem.innerHTML = `<img src="${art_url}" alt="${card_print.set_name || 'Art ' + (index + 1)}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22150%22 height=%22210%22%3E%3Crect fill=%22%23444%22 width=%22150%22 height=%22210%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23999%22 text-anchor=%22middle%22 dy=%22.3em%22%3EImage Error%3C/text%3E%3C/svg%3E'">`;
+                            artItem.title = `${card_print.set_name || 'Unknown'} - ${card_print.rarity || 'Unknown'}`;
+                            artItem.onclick = function() {
+                                document.querySelectorAll('.art-item').forEach(item => item.classList.remove('selected'));
+                                this.classList.add('selected');
+                                selectedArtUrl = art_url;
+                                selectedArtObject = {
+                                    image_url: art_url,
+                                    set: card_print.set_name || 'Unknown',
+                                    rarity: card_print.rarity || 'Unknown',
+                                    set_code: card_print.set || ''
+                                };
+                                document.getElementById('confirmArtBtn').disabled = false;
+                            };
+                            artGrid.appendChild(artItem);
+                        }
+                    });
+                    
+                    console.log('Appending art grid with', artGrid.children.length, 'items');
+                    gridContainer.innerHTML = '';
+                    gridContainer.appendChild(artGrid);
+                })
+                .catch(error => {
+                    console.error('Error fetching from Scryfall:', error);
+                    gridContainer.innerHTML = '<p style="color: #ff6b6b; text-align: center; padding: 20px;">Error fetching card arts: ' + error.message + '</p>';
+                });
         }
 
         function closeArtSelectionModal() {
