@@ -629,7 +629,125 @@
             border-color: rgba(231, 76, 60, 0.8);
         }
 
+        /* Toast Notification Styles */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: rgba(26, 26, 46, 0.95);
+            border: 1px solid rgba(102, 126, 234, 0.5);
+            border-radius: 12px;
+            padding: 18px 24px;
+            min-width: 320px;
+            max-width: 400px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            opacity: 0;
+            transform: translateX(400px);
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            pointer-events: auto;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .toast.success {
+            border-color: rgba(34, 193, 138, 0.6);
+            background: rgba(26, 26, 46, 0.98);
+        }
+
+        .toast.error {
+            border-color: rgba(231, 76, 60, 0.6);
+            background: rgba(26, 26, 46, 0.98);
+        }
+
+        .toast-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .toast.success .toast-icon {
+            background: linear-gradient(135deg, rgba(34, 193, 138, 0.2) 0%, rgba(34, 193, 138, 0.1) 100%);
+            color: #22c18a;
+        }
+
+        .toast.error .toast-icon {
+            background: linear-gradient(135deg, rgba(231, 76, 60, 0.2) 0%, rgba(231, 76, 60, 0.1) 100%);
+            color: #ff6b6b;
+        }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: 600;
+            font-size: 15px;
+            color: white;
+            margin-bottom: 4px;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .toast-message {
+            font-size: 13px;
+            color: #aaa;
+            line-height: 1.4;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .toast-close {
+            background: transparent;
+            border: none;
+            color: #888;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .toast-close:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
         @media (max-width: 768px) {
+            .toast-container {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+            }
+
+            .toast {
+                min-width: auto;
+                max-width: 100%;
+            }
+
             .header {
                 flex-direction: column;
                 text-align: center;
@@ -656,6 +774,9 @@
     </style>
 </head>
 <body>
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
     <div class="container">
         <div class="header">
             <h1>📚 My Collection</h1>
@@ -1208,12 +1329,25 @@
                                 document.querySelectorAll('.art-item').forEach(item => item.classList.remove('selected'));
                                 this.classList.add('selected');
                                 selectedArtUrl = art_url;
+                                
+                                // Extract price information from the card printing
+                                const prices = card_print.prices || {};
+                                // Try regular price first, then foil, then borderless/foil variants
+                                const price_usd = prices.usd || prices.usd_foil || prices.usd_etched || 'N/A';
+                                
+                                console.log('Selected art - Card print data:', card_print);
+                                console.log('Selected art - Prices object:', prices);
+                                console.log('Selected art - Extracted price:', price_usd);
+                                
                                 selectedArtObject = {
                                     image_url: art_url,
                                     set: card_print.set_name || 'Unknown',
                                     rarity: card_print.rarity || 'Unknown',
-                                    set_code: card_print.set || ''
+                                    set_code: card_print.set || '',
+                                    price_usd: price_usd,
+                                    tcgplayer_id: card_print.tcgplayer_id || 'N/A'
                                 };
+                                console.log('Selected art object:', selectedArtObject);
                                 document.getElementById('confirmArtBtn').disabled = false;
                             };
                             artGrid.appendChild(artItem);
@@ -1238,22 +1372,44 @@
         }
 
         function confirmArtSelection() {
-            if (!selectedArtUrl || !currentCardId || !selectedArtObject) return;
+            if (!selectedArtUrl || !currentCardId || !selectedArtObject) {
+                console.error('Missing required data:', {selectedArtUrl, currentCardId, selectedArtObject});
+                return;
+            }
+
+            const requestData = {
+                image_url: selectedArtUrl,
+                set_name: selectedArtObject.set || '',
+                rarity: selectedArtObject.rarity || '',
+                set_code: selectedArtObject.set_code || '',
+                price_usd: selectedArtObject.price_usd || 'N/A'
+            };
+            
+            console.log('Sending update request:', requestData);
+            console.log('Card ID:', currentCardId);
+            console.log('Selected art object:', selectedArtObject);
 
             fetch(`/update-card-art/${currentCardId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    image_url: selectedArtUrl,
-                    set_name: selectedArtObject.set || '',
-                    rarity: selectedArtObject.rarity || '',
-                    set_code: selectedArtObject.set_code || ''
-                })
+                body: JSON.stringify(requestData)
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                if (!response.ok) {
+                    console.error('Response not OK:', response.status, response.statusText);
+                    return response.text().then(text => {
+                        console.error('Error response body:', text);
+                        throw new Error(`HTTP ${response.status}: ${text}`);
+                    });
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('Update response:', data);
                 if (data.success) {
                     // Update the card image on the page
                     const cardItem = document.querySelector(`[data-card-id="${currentCardId}"]`);
@@ -1262,25 +1418,84 @@
                         if (img) {
                             img.src = selectedArtUrl;
                         }
-                        // Update the card details
+                        // Update the card details with data from server response
+                        const updatedData = data.updated_data || {};
+                        console.log('Updated data from server:', updatedData);
                         const setEl = cardItem.querySelector('.card-details div:nth-child(1)');
                         const rarityEl = cardItem.querySelector('.card-details div:nth-child(2)');
-                        if (setEl) setEl.innerHTML = `<span class="detail-label">Set:</span> ${selectedArtObject.set || 'Unknown'}`;
-                        if (rarityEl) rarityEl.innerHTML = `<span class="detail-label">Rarity:</span> ${selectedArtObject.rarity || 'Unknown'}`;
+                        const priceEl = cardItem.querySelector('.card-details div:nth-child(3)');
+                        
+                        if (setEl) setEl.innerHTML = `<span class="detail-label">Set:</span> ${updatedData.set_name || selectedArtObject.set || 'Unknown'}`;
+                        if (rarityEl) rarityEl.innerHTML = `<span class="detail-label">Rarity:</span> ${updatedData.rarity || selectedArtObject.rarity || 'Unknown'}`;
+                        if (priceEl) {
+                            // Handle price formatting - remove $ if already present, then add it
+                            let priceValue = updatedData.price_usd || selectedArtObject.price_usd || 'N/A';
+                            if (priceValue && priceValue !== 'N/A') {
+                                // Remove $ if present, then add it back
+                                priceValue = String(priceValue).replace('$', '').trim();
+                                const priceDisplay = `$${priceValue}`;
+                                priceEl.innerHTML = `<span class="detail-label">Price:</span> ${priceDisplay}`;
+                                console.log('Updated price display to:', priceDisplay);
+                            } else {
+                                priceEl.innerHTML = `<span class="detail-label">Price:</span> $N/A`;
+                            }
+                        }
+                        
                         // Update data attributes for filtering
-                        cardItem.setAttribute('data-set', selectedArtObject.set || '');
-                        cardItem.setAttribute('data-rarity', selectedArtObject.rarity || '');
+                        const finalPrice = updatedData.price_usd || selectedArtObject.price_usd || 'N/A';
+                        cardItem.setAttribute('data-set', updatedData.set_name || selectedArtObject.set || '');
+                        cardItem.setAttribute('data-rarity', updatedData.rarity || selectedArtObject.rarity || '');
+                        cardItem.setAttribute('data-price', finalPrice);
                     }
                     closeArtSelectionModal();
-                    alert('Card art, set, and rarity updated successfully!');
+                    showToast('success', 'Card Updated!', 'Art, set, rarity, and price have been updated successfully.');
                 } else {
-                    alert('Error updating card: ' + (data.error || 'Unknown error'));
+                    showToast('error', 'Update Failed', data.error || 'Unknown error occurred while updating the card.');
                 }
             })
             .catch(error => {
                 console.error('Error updating card:', error);
-                alert('Error updating card. Please try again.');
+                console.error('Error details:', error.message, error.stack);
+                showToast('error', 'Update Error', 'Failed to update card. Please try again.');
             });
+        }
+
+        // Toast Notification Function
+        function showToast(type, title, message) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icon = type === 'success' ? '✓' : '✕';
+            const iconBg = type === 'success' ? 'rgba(34, 193, 138, 0.2)' : 'rgba(231, 76, 60, 0.2)';
+            
+            toast.innerHTML = `
+                <div class="toast-icon">${icon}</div>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+            `;
+
+            container.appendChild(toast);
+
+            // Trigger animation
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 10);
+
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    if (toast.parentElement) {
+                        toast.remove();
+                    }
+                }, 400);
+            }, 5000);
         }
 
         function openPriceGraph(cardId, cardName, uploadedDate) {

@@ -10,6 +10,8 @@ import numpy as np
 from PIL import Image
 import io
 from datetime import datetime
+from urllib.parse import quote
+import sys
 
 app = Flask(__name__)
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "static/uploads")
@@ -222,6 +224,204 @@ def smart_card_name_cleanup(card_name):
 # ---------------------------
 # Fetch data from Scryfall
 # ---------------------------
+def fetch_multiple_cards(card_name, limit=20):
+    """Search for multiple cards matching the name with fuzzy matching"""
+    if not card_name:
+        return []
+    
+    # Check if the search query is wrapped in quotes (exact match requested)
+    is_exact_match = card_name.strip().startswith('"') and card_name.strip().endswith('"')
+    
+    if is_exact_match:
+        # Remove quotes for exact match search
+        clean_name = card_name.strip().strip('"')
+        search_query = clean_name
+        search_queries = [f'!"{search_query}"']  # Exact match only
+    else:
+        # Don't use smart_card_name_cleanup for search - it might remove important parts
+        # Just use the original search term, Scryfall handles fuzzy matching well
+        search_query = card_name.strip()
+        
+        # Use multiple search strategies for better results
+        # Scryfall's search API - try different approaches
+        # The name: operator searches card names specifically
+        search_queries = [
+            f'name:"{search_query}"',  # Name search with quotes (partial match)
+            f'name:{search_query}',    # Name search without quotes (fuzzy)
+            f'!"{search_query}"',      # Exact match
+            f'"{search_query}"',       # Quoted search
+            f'{search_query}',         # Simple search
+        ]
+    
+    try:
+        all_results = []
+        seen_names = set()
+        
+        print(f"Searching for: '{card_name}'")
+        print(f"Search queries: {search_queries}")
+        
+        for query in search_queries:
+            try:
+                search_url = f'https://api.scryfall.com/cards/search?q={quote(query)}&order=released&dir=desc&unique=cards'
+                print(f"Trying URL: {search_url}")
+                app.logger.info(f"Searching Scryfall: {search_url}")
+                response = requests.get(search_url, timeout=10)
+                
+                print(f"Response status: {response.status_code}")
+                app.logger.info(f"Scryfall response status: {response.status_code}")
+                
+                if response.status_code == 200:
+                    search_data = response.json()
+                    print(f"Found {len(search_data.get('data', []))} results")
+                    
+                    # Check if there's an error in the response
+                    if 'error' in search_data:
+                        error_msg = search_data.get('error', 'Unknown error')
+                        print(f"Scryfall error: {error_msg}")
+                        app.logger.warning(f"Scryfall API error: {error_msg}")
+                        continue
+                    
+                    if search_data.get('data') and len(search_data.get('data', [])) > 0:
+                        for card_data in search_data['data']:
+                            card_name_found = card_data.get("name", "")
+                            
+                            # Skip if we've already seen this exact card name
+                            if card_name_found in seen_names:
+                                continue
+                            seen_names.add(card_name_found)
+                            
+                            # Extract price information
+                            prices = card_data.get("prices", {}) or {}
+                            price_usd = prices.get("usd") or prices.get("usd_foil") or "N/A"
+                            
+                            # Get image URL
+                            image_url = None
+                            if "image_uris" in card_data and card_data.get("image_uris"):
+                                image_url = card_data["image_uris"].get("normal") or card_data["image_uris"].get("large")
+                            elif card_data.get("card_faces") and isinstance(card_data.get("card_faces"), list):
+                                first_face = card_data["card_faces"][0]
+                                if first_face.get("image_uris"):
+                                    image_url = first_face["image_uris"].get("normal") or first_face["image_uris"].get("large")
+                            
+                            card_result = {
+                                "name": card_name_found,
+                                "set": card_data.get("set_name", "Unknown"),
+                                "set_code": card_data.get("set", "").upper(),
+                                "rarity": card_data.get("rarity", "Unknown"),
+                                "color_identity": card_data.get("color_identity", []),
+                                "mana_cost": card_data.get("mana_cost", ""),
+                                "type_line": card_data.get("type_line", "Unknown"),
+                                "printed_text": card_data.get("oracle_text", "No description available"),
+                                "image_url": image_url,
+                                "price_usd": price_usd,
+                                "price_usd_foil": prices.get("usd_foil", "N/A"),
+                                "tcgplayer_id": card_data.get("tcgplayer_id", "N/A"),
+                                "legalities": card_data.get("legalities", {}),
+                                "artist": card_data.get("artist", "N/A"),
+                                "collector_number": card_data.get("collector_number", "N/A"),
+                                "power": card_data.get("power", "N/A"),
+                                "toughness": card_data.get("toughness", "N/A"),
+                                "released_at": card_data.get("released_at", ""),
+                            }
+                            all_results.append(card_result)
+                            
+                            # Stop if we have enough results
+                            if len(all_results) >= limit:
+                                break
+                
+                # If we got results, return them
+                if all_results:
+                    print(f"Returning {len(all_results)} results")
+                    break
+                elif response.status_code == 404:
+                    # No results for this query, try next one
+                    print(f"No results for query: {query}")
+                    app.logger.info(f"No results for query: {query}")
+                    # Try to parse error message
+                    try:
+                        error_data = response.json()
+                        if 'error' in error_data:
+                            print(f"Scryfall error message: {error_data.get('error')}")
+                    except:
+                        pass
+                    continue
+                else:
+                    error_text = response.text[:500] if hasattr(response, 'text') else str(response)
+                    print(f"Unexpected status code {response.status_code}: {error_text}")
+                    app.logger.error(f"Unexpected Scryfall status {response.status_code}: {error_text}")
+                    
+            except Exception as e:
+                print(f"Search query '{query}' failed: {e}")
+                import traceback
+                traceback.print_exc()
+                continue
+        
+        print(f"Final results: {len(all_results)} cards found")
+        
+        # If no results found, try one more time with a simpler approach
+        if not all_results:
+            print("No results with standard queries, trying simple name search...")
+            try:
+                # Try a very simple search - just the card name
+                simple_query = card_name.strip()
+                simple_url = f'https://api.scryfall.com/cards/search?q={quote(simple_query)}&unique=cards'
+                print(f"Trying simple search: {simple_url}")
+                simple_response = requests.get(simple_url, timeout=10)
+                
+                if simple_response.status_code == 200:
+                    simple_data = simple_response.json()
+                    if simple_data.get('data') and len(simple_data.get('data', [])) > 0:
+                        print(f"Simple search found {len(simple_data.get('data', []))} results")
+                        # Process the results same as above
+                        for card_data in simple_data['data'][:limit]:
+                            card_name_found = card_data.get("name", "")
+                            if card_name_found in seen_names:
+                                continue
+                            seen_names.add(card_name_found)
+                            
+                            prices = card_data.get("prices", {}) or {}
+                            price_usd = prices.get("usd") or prices.get("usd_foil") or "N/A"
+                            
+                            image_url = None
+                            if "image_uris" in card_data and card_data.get("image_uris"):
+                                image_url = card_data["image_uris"].get("normal") or card_data["image_uris"].get("large")
+                            elif card_data.get("card_faces") and isinstance(card_data.get("card_faces"), list):
+                                first_face = card_data["card_faces"][0]
+                                if first_face.get("image_uris"):
+                                    image_url = first_face["image_uris"].get("normal") or first_face["image_uris"].get("large")
+                            
+                            card_result = {
+                                "name": card_name_found,
+                                "set": card_data.get("set_name", "Unknown"),
+                                "set_code": card_data.get("set", "").upper(),
+                                "rarity": card_data.get("rarity", "Unknown"),
+                                "color_identity": card_data.get("color_identity", []),
+                                "mana_cost": card_data.get("mana_cost", ""),
+                                "type_line": card_data.get("type_line", "Unknown"),
+                                "printed_text": card_data.get("oracle_text", "No description available"),
+                                "image_url": image_url,
+                                "price_usd": price_usd,
+                                "price_usd_foil": prices.get("usd_foil", "N/A"),
+                                "tcgplayer_id": card_data.get("tcgplayer_id", "N/A"),
+                                "legalities": card_data.get("legalities", {}),
+                                "artist": card_data.get("artist", "N/A"),
+                                "collector_number": card_data.get("collector_number", "N/A"),
+                                "power": card_data.get("power", "N/A"),
+                                "toughness": card_data.get("toughness", "N/A"),
+                                "released_at": card_data.get("released_at", ""),
+                            }
+                            all_results.append(card_result)
+            except Exception as e:
+                print(f"Simple search fallback also failed: {e}")
+        
+        return all_results[:limit]
+        
+    except Exception as e:
+        print(f"Error searching for multiple cards: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
+
 def fetch_card_details(card_name):
     """Fetch card details from Scryfall with multiple attempts"""
     if not card_name:
@@ -446,40 +646,240 @@ def get_card_info(card_id):
         traceback.print_exc()
         return jsonify({'error': 'Server error'}), 500
 
+def fetch_card_by_set(card_name, set_code):
+    """Fetch a specific card printing from Scryfall by card name and set code"""
+    if not card_name or not set_code:
+        return None
+    
+    try:
+        # Handle double-faced cards - use the first part of the name before "//"
+        clean_card_name = card_name.split(" // ")[0].strip()
+        
+        # Query Scryfall for the specific printing - use set code in lowercase
+        set_code_lower = set_code.lower()
+        search_query = f'!"{clean_card_name}" set:{set_code_lower}'
+        search_url = f'https://api.scryfall.com/cards/search?q={quote(search_query)}'
+        
+        print(f"Fetching card by set - Query: {search_query}, URL: {search_url}")
+        
+        response = requests.get(search_url, timeout=10)
+        if response.status_code == 200:
+            search_data = response.json()
+            if search_data.get('data') and len(search_data['data']) > 0:
+                # Find the exact match by set code (case-insensitive)
+                for card_data in search_data['data']:
+                    if card_data.get('set', '').lower() == set_code_lower:
+                        # Extract price information
+                        prices = card_data.get("prices", {}) or {}
+                        price_usd = prices.get("usd") or prices.get("usd_foil") or "N/A"
+                        price_usd_foil = prices.get("usd_foil") or "N/A"
+                        
+                        result = {
+                            "set": card_data.get("set_name", "Unknown"),
+                            "set_code": card_data.get("set", "").upper(),
+                            "rarity": card_data.get("rarity", "Unknown"),
+                            "price_usd": price_usd,
+                            "price_usd_foil": price_usd_foil,
+                            "tcgplayer_id": card_data.get("tcgplayer_id", "N/A"),
+                        }
+                        print(f"Found card data: {result}")
+                        return result
+                
+                # If no exact match, use first result
+                card_data = search_data['data'][0]
+                prices = card_data.get("prices", {}) or {}
+                price_usd = prices.get("usd") or prices.get("usd_foil") or "N/A"
+                price_usd_foil = prices.get("usd_foil") or "N/A"
+                
+                result = {
+                    "set": card_data.get("set_name", "Unknown"),
+                    "set_code": card_data.get("set", "").upper(),
+                    "rarity": card_data.get("rarity", "Unknown"),
+                    "price_usd": price_usd,
+                    "price_usd_foil": price_usd_foil,
+                    "tcgplayer_id": card_data.get("tcgplayer_id", "N/A"),
+                }
+                print(f"Using first result: {result}")
+                return result
+        else:
+            print(f"Scryfall API returned status {response.status_code}: {response.text[:200]}")
+    except Exception as e:
+        print(f"Error fetching card by set: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    return None
+
 @app.route('/update-card-art/<int:card_id>', methods=['POST'])
 @login_required
 def update_card_art(card_id):
-    """Update the displayed card art and related info (set, rarity)"""
+    """Update the displayed card art and related info (set, rarity, price)"""
+    # Force output immediately
+    sys.stdout.write(f"\n\n{'='*60}\n")
+    sys.stdout.write(f"UPDATE CARD ART CALLED for card_id: {card_id}\n")
+    sys.stdout.write(f"{'='*60}\n")
+    sys.stdout.flush()
+    
+    app.logger.info(f"=== UPDATE CARD ART CALLED for card_id: {card_id} ===")
+    print(f"\n\n{'='*60}")
+    print(f"UPDATE CARD ART CALLED for card_id: {card_id}")
+    print(f"{'='*60}\n")
+    sys.stdout.flush()
+    
     try:
         card = Card.query.get(card_id)
         if not card or card.user_id != current_user.id:
+            app.logger.error(f"Card {card_id} not found or unauthorized")
             return jsonify({'success': False, 'error': 'Card not found'}), 404
         
         data = request.get_json()
+        app.logger.info(f"Received JSON data: {data}")
+        
+        if not data:
+            app.logger.error("No JSON data received")
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+        
         image_url = data.get('image_url')
         
         if not image_url:
+            app.logger.error("No image URL provided")
             return jsonify({'success': False, 'error': 'No image URL provided'}), 400
+        
+        # Fetch updated card details from Scryfall for the specific printing
+        set_code = data.get('set_code', '')
+        card_name = card.card_name
+        
+        app.logger.info(f"Updating card art for {card_name}, set_code: {set_code}")
+        app.logger.info(f"Received data: {data}")
+        print(f"Updating card art for {card_name}, set_code: {set_code}")
+        print(f"Received data: {data}")
+        
+        scryfall_data = None
+        if set_code:
+            app.logger.info(f"Fetching Scryfall data for set_code: {set_code}")
+            scryfall_data = fetch_card_by_set(card_name, set_code)
+            app.logger.info(f"Scryfall data result: {scryfall_data}")
+        else:
+            app.logger.warning("No set_code provided, skipping Scryfall fetch")
         
         # Update card art and related fields
         card.selected_art_url = image_url
         card.image_url = image_url
         
-        # Update set if provided
+        # Update set, rarity, and price from Scryfall data if available
+        price_updated = False
+        if scryfall_data:
+            app.logger.info(f"Using Scryfall data: {scryfall_data}")
+            print(f"Using Scryfall data: {scryfall_data}")
+            card.set_name = scryfall_data.get('set', data.get('set_name', card.set_name))
+            card.rarity = scryfall_data.get('rarity', data.get('rarity', card.rarity))
+            
+            # Update price from Scryfall
+            new_price = scryfall_data.get('price_usd', 'N/A')
+            app.logger.info(f"New price from Scryfall: {new_price}")
+            print(f"New price from Scryfall: {new_price}")
+            if new_price and new_price != 'N/A' and new_price is not None:
+                # Clean the price - remove $ if present
+                price_str = str(new_price).replace('$', '').strip()
+                card.price_usd = price_str
+                price_updated = True
+                app.logger.info(f"Updated price to: {card.price_usd}")
+                print(f"Updated price to: {card.price_usd}")
+                
+                # Update price history if price changed
+                try:
+                    price_value = float(price_str)
+                    if price_value > 0:
+                        # Check if we need to add a new price history entry
+                        latest_history = PriceHistory.query.filter_by(card_id=card.id).order_by(PriceHistory.tracked_at.desc()).first()
+                        if not latest_history or abs(latest_history.price_usd - price_value) > 0.01:  # Allow small floating point differences
+                            price_history = PriceHistory(card_id=card.id, price_usd=price_value)
+                            db.session.add(price_history)
+                            app.logger.info(f"Added price history entry: {price_value}")
+                            print(f"Added price history entry: {price_value}")
+                except (ValueError, TypeError) as e:
+                    app.logger.error(f"Error processing price: {e}")
+                    print(f"Error processing price: {e}")
+            
+            # Update card_data with new TCGPlayer ID if available
+            if card.card_data and isinstance(card.card_data, dict):
+                if scryfall_data.get('tcgplayer_id'):
+                    card.card_data['tcgplayer_id'] = scryfall_data.get('tcgplayer_id')
+            else:
+                card.card_data = {'tcgplayer_id': scryfall_data.get('tcgplayer_id', 'N/A')}
+        
+        # Always update set and rarity from provided data if available
         if data.get('set_name'):
             card.set_name = data.get('set_name')
-        
-        # Update rarity if provided
+            app.logger.info(f"Updated set_name from request: {card.set_name}")
         if data.get('rarity'):
             card.rarity = data.get('rarity')
+            app.logger.info(f"Updated rarity from request: {card.rarity}")
+        
+        # If price wasn't updated from Scryfall, use the price from the request
+        app.logger.info(f"Price updated flag: {price_updated}, Request price: {data.get('price_usd')}")
+        print(f"Price updated flag: {price_updated}, Request price: {data.get('price_usd')}")
+        sys.stdout.flush()
+        
+        # ALWAYS try to update price from request if provided, even if Scryfall was used
+        # This ensures we get the correct price for special printings
+        request_price = data.get('price_usd')
+        if request_price and request_price != 'N/A' and request_price != 'None' and str(request_price).lower() != 'null':
+            # Clean the price - remove $ if present
+            price_str = str(request_price).replace('$', '').strip()
+            try:
+                # Validate it's a number
+                price_float = float(price_str)
+                if price_float > 0:
+                    card.price_usd = price_str
+                    app.logger.info(f"Updated price from request data (final): {card.price_usd}")
+                    print(f"Updated price from request data (final): {card.price_usd}")
+                    sys.stdout.flush()
+                    
+                    # Update price history
+                    latest_history = PriceHistory.query.filter_by(card_id=card.id).order_by(PriceHistory.tracked_at.desc()).first()
+                    if not latest_history or abs(latest_history.price_usd - price_float) > 0.01:
+                        price_history = PriceHistory(card_id=card.id, price_usd=price_float)
+                        db.session.add(price_history)
+                        app.logger.info(f"Added price history entry from request (final): {price_float}")
+                        print(f"Added price history entry from request (final): {price_float}")
+                        sys.stdout.flush()
+            except (ValueError, TypeError) as e:
+                app.logger.error(f"Error processing price from request (final): {e}")
+                print(f"Error processing price from request (final): {e}")
+                sys.stdout.flush()
         
         db.session.commit()
+        app.logger.info(f"Database committed successfully")
         
-        return jsonify({'success': True, 'message': 'Card updated successfully'})
+        # Format price for response - ensure it's a clean string without extra formatting
+        price_response = card.price_usd
+        if price_response and price_response != 'N/A':
+            # Remove $ if present, we'll add it back in frontend if needed
+            price_response = str(price_response).replace('$', '').strip()
+        
+        app.logger.info(f"Final card state - Set: {card.set_name}, Rarity: {card.rarity}, Price: {card.price_usd}")
+        print(f"Final card state - Set: {card.set_name}, Rarity: {card.rarity}, Price: {card.price_usd}")
+        
+        response_data = {
+            'success': True, 
+            'message': 'Card updated successfully',
+            'updated_data': {
+                'set_name': card.set_name,
+                'rarity': card.rarity,
+                'price_usd': price_response
+            }
+        }
+        app.logger.info(f"Returning response: {response_data}")
+        print(f"Returning response: {response_data}")
+        return jsonify(response_data)
     except Exception as e:
         db.session.rollback()
+        app.logger.error(f"Error updating card: {e}", exc_info=True)
         print(f"Error updating card: {e}")
-        return jsonify({'success': False, 'error': 'Server error'}), 500
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'Server error: {str(e)}'}), 500
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -623,15 +1023,27 @@ def upload_card():
             if not card_name:
                 return render_template("index.html", error="Please enter a card name.")
 
-            details = fetch_card_details(card_name)
-            if not details:
-                return render_template("index.html", error=f"No Magic card found for '{card_name}'.")
+            # Search for multiple cards with fuzzy matching
+            cards = fetch_multiple_cards(card_name, limit=20)
+            
+            if not cards:
+                return render_template("index.html", error=f"No Magic card found for '{card_name}'. Try checking your spelling or search for a different card.")
 
+            # If only one result, use the single card result page
+            if len(cards) == 1:
+                return render_template(
+                    "result.html",
+                    card_name=card_name,
+                    details=cards[0],
+                    image_path=""
+                )
+            
+            # Multiple results - show search results page
             return render_template(
-                "result.html",
-                card_name=card_name,
-                details=details,
-                image_path=""
+                "search_results.html",
+                search_query=card_name,
+                cards=cards,
+                total_results=len(cards)
             )
 
         # Otherwise handle file upload

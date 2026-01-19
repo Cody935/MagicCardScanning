@@ -298,7 +298,125 @@
             }
         }
 
+        /* Toast Notification Styles */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: rgba(26, 26, 46, 0.95);
+            border: 1px solid rgba(102, 126, 234, 0.5);
+            border-radius: 12px;
+            padding: 18px 24px;
+            min-width: 320px;
+            max-width: 400px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            opacity: 0;
+            transform: translateX(400px);
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            pointer-events: auto;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .toast.success {
+            border-color: rgba(34, 193, 138, 0.6);
+            background: rgba(26, 26, 46, 0.98);
+        }
+
+        .toast.error {
+            border-color: rgba(231, 76, 60, 0.6);
+            background: rgba(26, 26, 46, 0.98);
+        }
+
+        .toast-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .toast.success .toast-icon {
+            background: linear-gradient(135deg, rgba(34, 193, 138, 0.2) 0%, rgba(34, 193, 138, 0.1) 100%);
+            color: #22c18a;
+        }
+
+        .toast.error .toast-icon {
+            background: linear-gradient(135deg, rgba(231, 76, 60, 0.2) 0%, rgba(231, 76, 60, 0.1) 100%);
+            color: #ff6b6b;
+        }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: 600;
+            font-size: 15px;
+            color: white;
+            margin-bottom: 4px;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .toast-message {
+            font-size: 13px;
+            color: #aaa;
+            line-height: 1.4;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .toast-close {
+            background: transparent;
+            border: none;
+            color: #888;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .toast-close:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
         @media (max-width: 768px) {
+            .toast-container {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+            }
+
+            .toast {
+                min-width: auto;
+                max-width: 100%;
+            }
+
             .result-layout {
                 grid-template-columns: 1fr;
             }
@@ -318,10 +436,11 @@
     </style>
 </head>
 <body>
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
     <div class="main-container">
         <a href="/" class="back-link">⬅ Back to Scanner</a>
-        
-        <div id="successMessage" class="success-message">✓ Card added to your collection!</div>
 
         <h1 class="result-title">{{ details.name }}</h1>
 
@@ -437,22 +556,59 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    successMsg.style.display = 'block';
                     btn.innerHTML = '✓ Added to Collection';
                     btn.style.background = 'rgba(102, 200, 150, 0.3)';
                     btn.style.color = '#66c896';
+                    showToast('success', 'Card Added!', '{{ details.name }} has been added to your collection.');
                 } else {
-                    alert('Error: ' + (data.error || 'Failed to add card'));
+                    showToast('error', 'Add Failed', data.error || 'Failed to add card to collection.');
                     btn.disabled = false;
                     btn.innerHTML = '➕ Add to Collection';
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error adding card to collection');
+                showToast('error', 'Add Error', 'Failed to add card. Please try again.');
                 btn.disabled = false;
                 btn.innerHTML = '➕ Add to Collection';
             });
+        }
+
+        // Toast Notification Function
+        function showToast(type, title, message) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icon = type === 'success' ? '✓' : '✕';
+            
+            toast.innerHTML = `
+                <div class="toast-icon">${icon}</div>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+            `;
+
+            container.appendChild(toast);
+
+            // Trigger animation
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 10);
+
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    if (toast.parentElement) {
+                        toast.remove();
+                    }
+                }, 400);
+            }, 5000);
         }
     </script>
 </body>
